@@ -1,17 +1,15 @@
 /**
- * VibeBuilder — Blocks Data Gateway API
+ * VibeBuilder — Blocks GraphQL API
  *
- * Confirmed GraphQL operation names (from Data Gateway setup):
- *   WebsiteProject  → query: websiteProjects   insert: insertWebsiteProject
- *                      update: updateWebsiteProject  delete: deleteWebsiteProject
- *   PageLayout      → query: pageLayouts        insert: insertPageLayout
- *                      update: updatePageLayout       delete: deletePageLayout
+ * Endpoint : https://api.seliseblocks.com/graphql/v1/graphql
+ * Pattern  : DynamicQueryInput — filter is a JSON-stringified MongoDB filter
+ * Schemas  : WebsiteProject, PageLayout (created via Data Gateway)
  *
- * Schema fields actually deployed:
- *   WebsiteProject : userId, siteName, pages (String[])
- *                    — siteId not in schema; _id (MongoDB ObjectId) is used as siteId
- *   PageLayout     : pageId, userId, siteId, slug, isPublished, components (String/JSON)
- *                    — components must be JSON.stringified before saving
+ * Query field names : schema name + 's'  (WebsiteProject → WebsiteProjects)
+ * Mutations         : insert/update/deleteWebsiteProject, insert/update/deletePageLayout
+ * Insert response   : { itemId, totalImpactedData, acknowledged }
+ * Update/Delete     : { totalImpactedData, acknowledged }
+ * Filter            : JSON.stringify({ field: value })  — passed as String variable
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -20,33 +18,7 @@ import { PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
 
 const projectKey = import.meta.env.VITE_X_BLOCKS_KEY || '';
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-// Slug goes in the x-blocks-key header, not the URL
-const GRAPHQL_URL = `${baseUrl}/uds/v1/graphql`;
-
-// ---------------------------------------------------------------------------
-// Raw GraphQL response shapes
-// ---------------------------------------------------------------------------
-
-interface UdsListResponse<T> {
-  items: T[];
-  total?: number;
-}
-
-interface WebsiteProjectRecord {
-  _id: string;
-  userId: string;
-  siteName: string;
-}
-
-interface PageLayoutRecord {
-  _id: string;
-  pageId: string;
-  siteId: string;
-  userId: string;
-  slug: string;
-  isPublished: boolean;
-  components: string; // always a JSON string from the gateway
-}
+const GRAPHQL_URL = `${baseUrl}/graphql/v1/graphql`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -54,40 +26,13 @@ interface PageLayoutRecord {
 
 function parseComponents(raw: string | null | undefined): VibeComponent[] {
   if (!raw) return [];
-  if (typeof raw === 'string') {
-    try {
-      return JSON.parse(raw) as VibeComponent[];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
-function toPageLayout(r: PageLayoutRecord): PageLayout {
-  return {
-    _id: r._id,
-    pageId: r.pageId,
-    siteId: r.siteId,
-    userId: r.userId,
-    pageName: r.slug, // pageName not in schema; fall back to slug for display
-    slug: r.slug,
-    isPublished: r.isPublished ?? false,
-    components: parseComponents(r.components),
-  };
-}
-
-function toWebsiteProject(r: WebsiteProjectRecord): WebsiteProject {
-  return {
-    _id: r._id,
-    siteId: r._id, // siteId not a schema field; use MongoDB _id as stable site key
-    userId: r.userId,
-    siteName: r.siteName,
-  };
+  try { return JSON.parse(raw) as VibeComponent[]; }
+  catch { return []; }
 }
 
 // ---------------------------------------------------------------------------
 // Public (unauthenticated) GraphQL fetch — used by the live renderer
+// No Authorization header; x-blocks-key still required.
 // ---------------------------------------------------------------------------
 
 async function publicQuery<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
@@ -99,6 +44,12 @@ async function publicQuery<T>(query: string, variables: Record<string, unknown> 
     },
     body: JSON.stringify({ query, variables }),
   });
+  if (!res.ok) {
+    const text = await res.text();
+    // eslint-disable-next-line no-console
+    console.error('[VibeBuilder public] HTTP', res.status, text);
+    throw new Error(`GraphQL HTTP ${res.status}: ${text}`);
+  }
   const json = await res.json();
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data as T;
@@ -110,40 +61,57 @@ async function publicQuery<T>(query: string, variables: Record<string, unknown> 
 
 export async function getMyWebsites(userId: string): Promise<WebsiteProject[]> {
   const query = `
-    query GetMyWebsites($userId: String!) {
-      websiteProjects(filter: { userId: { eq: $userId } }) {
+    query GetMyWebsites($input: DynamicQueryInput) {
+      WebsiteProjects(input: $input) {
+        totalCount
         items {
-          _id
+          ItemId
           userId
           siteName
         }
       }
     }
   `;
-  const data = await graphqlClient.query<{ websiteProjects: UdsListResponse<WebsiteProjectRecord> }>(
-    { query, variables: { userId } }
-  );
-  return (data.websiteProjects?.items ?? []).map(toWebsiteProject);
+  const data = await graphqlClient.query<{ WebsiteProjects: { items: any[] } }>({
+    query,
+    variables: {
+      input: {
+        filter: JSON.stringify({ userId }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 100,
+      },
+    },
+  });
+  return (data.WebsiteProjects?.items ?? []).map((r) => ({
+    _id: r.ItemId,
+    siteId: r.ItemId,
+    userId: r.userId ?? userId,
+    siteName: r.siteName ?? '',
+  }));
 }
 
 export async function createWebsite(siteName: string, userId: string): Promise<WebsiteProject> {
   const mutation = `
     mutation CreateWebsite($input: WebsiteProjectInsertInput!) {
       insertWebsiteProject(input: $input) {
-        _id
-        userId
-        siteName
+        itemId
+        totalImpactedData
+        acknowledged
       }
     }
   `;
   try {
-    const data = await graphqlClient.mutate<{ insertWebsiteProject: WebsiteProjectRecord }>({
+    const data = await graphqlClient.mutate<{
+      insertWebsiteProject: { itemId: string; totalImpactedData: number; acknowledged: boolean };
+    }>({
       query: mutation,
       variables: { input: { userId, siteName } },
     });
     // eslint-disable-next-line no-console
     console.debug('[VibeBuilder] createWebsite response:', data);
-    return toWebsiteProject(data.insertWebsiteProject);
+    const itemId = data.insertWebsiteProject.itemId;
+    return { _id: itemId, siteId: itemId, userId, siteName };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[VibeBuilder] createWebsite failed:', err);
@@ -152,15 +120,21 @@ export async function createWebsite(siteName: string, userId: string): Promise<W
 }
 
 export async function deleteWebsite(siteId: string): Promise<void> {
-  // siteId == _id in our mapping
   const mutation = `
-    mutation DeleteWebsite($id: String!) {
-      deleteWebsiteProject(filter: { id: { eq: $id } }) {
-        isSuccess
+    mutation DeleteWebsite($filter: String!, $input: WebsiteProjectDeleteInput!) {
+      deleteWebsiteProject(filter: $filter, input: $input) {
+        acknowledged
+        totalImpactedData
       }
     }
   `;
-  await graphqlClient.mutate({ query: mutation, variables: { id: siteId } });
+  await graphqlClient.mutate({
+    query: mutation,
+    variables: {
+      filter: JSON.stringify({ _id: siteId }),
+      input: { isHardDelete: true },
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -169,10 +143,11 @@ export async function deleteWebsite(siteId: string): Promise<void> {
 
 export async function getSitePages(siteId: string): Promise<PageLayout[]> {
   const query = `
-    query GetSitePages($siteId: String!) {
-      pageLayouts(filter: { siteId: { eq: $siteId } }) {
+    query GetSitePages($input: DynamicQueryInput) {
+      PageLayouts(input: $input) {
+        totalCount
         items {
-          _id
+          ItemId
           pageId
           siteId
           userId
@@ -183,11 +158,18 @@ export async function getSitePages(siteId: string): Promise<PageLayout[]> {
       }
     }
   `;
-  const data = await graphqlClient.query<{ pageLayouts: UdsListResponse<PageLayoutRecord> }>({
+  const data = await graphqlClient.query<{ PageLayouts: { items: any[] } }>({
     query,
-    variables: { siteId },
+    variables: {
+      input: {
+        filter: JSON.stringify({ siteId }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 100,
+      },
+    },
   });
-  return (data.pageLayouts?.items ?? []).map(toPageLayout);
+  return (data.PageLayouts?.items ?? []).map(toPageLayout);
 }
 
 export async function createPage(
@@ -200,38 +182,46 @@ export async function createPage(
   const mutation = `
     mutation CreatePage($input: PageLayoutInsertInput!) {
       insertPageLayout(input: $input) {
-        _id
-        pageId
-        siteId
-        userId
-        slug
-        isPublished
-        components
+        itemId
+        totalImpactedData
+        acknowledged
       }
     }
   `;
-  const data = await graphqlClient.mutate<{ insertPageLayout: PageLayoutRecord }>({
+  const pageSlug = slug || pageName.toLowerCase().replace(/\s+/g, '-');
+  await graphqlClient.mutate<{
+    insertPageLayout: { itemId: string; totalImpactedData: number; acknowledged: boolean };
+  }>({
     query: mutation,
     variables: {
       input: {
         pageId,
         siteId,
         userId,
-        slug: slug || pageName.toLowerCase().replace(/\s+/g, '-'),
+        slug: pageSlug,
         isPublished: false,
         components: JSON.stringify([]),
       },
     },
   });
-  return toPageLayout(data.insertPageLayout);
+  return {
+    _id: pageId,
+    pageId,
+    siteId,
+    userId,
+    pageName: pageSlug,
+    slug: pageSlug,
+    isPublished: false,
+    components: [],
+  };
 }
 
 export async function getPageLayout(pageId: string): Promise<PageLayout | null> {
   const query = `
-    query GetPageLayout($pageId: String!) {
-      pageLayouts(filter: { pageId: { eq: $pageId } }) {
+    query GetPageLayout($input: DynamicQueryInput) {
+      PageLayouts(input: $input) {
         items {
-          _id
+          ItemId
           pageId
           siteId
           userId
@@ -242,30 +232,34 @@ export async function getPageLayout(pageId: string): Promise<PageLayout | null> 
       }
     }
   `;
-  const data = await graphqlClient.query<{ pageLayouts: UdsListResponse<PageLayoutRecord> }>({
+  const data = await graphqlClient.query<{ PageLayouts: { items: any[] } }>({
     query,
-    variables: { pageId },
+    variables: {
+      input: {
+        filter: JSON.stringify({ pageId }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 1,
+      },
+    },
   });
-  const item = data.pageLayouts?.items?.[0];
+  const item = data.PageLayouts?.items?.[0];
   return item ? toPageLayout(item) : null;
 }
 
-export async function savePageLayout(
-  pageId: string,
-  components: VibeComponent[]
-): Promise<void> {
+export async function savePageLayout(pageId: string, components: VibeComponent[]): Promise<void> {
   const mutation = `
-    mutation SavePageLayout($pageId: String!, $input: PageLayoutUpdateInput!) {
-      updatePageLayout(filter: { pageId: { eq: $pageId } }, input: $input) {
-        _id
-        pageId
+    mutation SavePageLayout($filter: String!, $input: PageLayoutUpdateInput!) {
+      updatePageLayout(filter: $filter, input: $input) {
+        totalImpactedData
+        acknowledged
       }
     }
   `;
   await graphqlClient.mutate({
     query: mutation,
     variables: {
-      pageId,
+      filter: JSON.stringify({ pageId }),
       input: { components: JSON.stringify(components) },
     },
   });
@@ -273,29 +267,55 @@ export async function savePageLayout(
 
 export async function publishPage(pageId: string, isPublished: boolean): Promise<void> {
   const mutation = `
-    mutation PublishPage($pageId: String!, $input: PageLayoutUpdateInput!) {
-      updatePageLayout(filter: { pageId: { eq: $pageId } }, input: $input) {
-        _id
-        pageId
-        isPublished
+    mutation PublishPage($filter: String!, $input: PageLayoutUpdateInput!) {
+      updatePageLayout(filter: $filter, input: $input) {
+        totalImpactedData
+        acknowledged
       }
     }
   `;
   await graphqlClient.mutate({
     query: mutation,
-    variables: { pageId, input: { isPublished } },
+    variables: {
+      filter: JSON.stringify({ pageId }),
+      input: { isPublished },
+    },
   });
 }
 
 export async function deletePage(pageId: string): Promise<void> {
   const mutation = `
-    mutation DeletePage($pageId: String!) {
-      deletePageLayout(filter: { pageId: { eq: $pageId } }) {
-        isSuccess
+    mutation DeletePage($filter: String!, $input: PageLayoutDeleteInput!) {
+      deletePageLayout(filter: $filter, input: $input) {
+        acknowledged
+        totalImpactedData
       }
     }
   `;
-  await graphqlClient.mutate({ query: mutation, variables: { pageId } });
+  await graphqlClient.mutate({
+    query: mutation,
+    variables: {
+      filter: JSON.stringify({ pageId }),
+      input: { isHardDelete: true },
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Shared response mapper
+// ---------------------------------------------------------------------------
+
+function toPageLayout(r: any): PageLayout {
+  return {
+    _id: r.ItemId ?? r.pageId,
+    pageId: r.pageId,
+    siteId: r.siteId,
+    userId: r.userId,
+    pageName: r.slug ?? r.pageId,
+    slug: r.slug,
+    isPublished: r.isPublished ?? false,
+    components: parseComponents(r.components),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -307,14 +327,10 @@ export async function getPublicPageLayout(
   slug: string
 ): Promise<PageLayout | null> {
   const query = `
-    query GetPublicPage($userId: String!, $slug: String!) {
-      pageLayouts(filter: {
-        userId: { eq: $userId },
-        slug: { eq: $slug },
-        isPublished: { eq: true }
-      }) {
+    query GetPublicPage($input: DynamicQueryInput) {
+      PageLayouts(input: $input) {
         items {
-          _id
+          ItemId
           pageId
           siteId
           userId
@@ -325,24 +341,24 @@ export async function getPublicPageLayout(
       }
     }
   `;
-  const data = await publicQuery<{ pageLayouts: UdsListResponse<PageLayoutRecord> }>(query, {
-    userId,
-    slug,
+  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
+    input: {
+      filter: JSON.stringify({ userId, slug, isPublished: true }),
+      sort: '{}',
+      pageNo: 1,
+      pageSize: 1,
+    },
   });
-  const item = data.pageLayouts?.items?.[0];
+  const item = data.PageLayouts?.items?.[0];
   return item ? toPageLayout(item) : null;
 }
 
 export async function getPublicSitePages(userId: string, siteId: string): Promise<PageLayout[]> {
   const query = `
-    query GetPublicSitePages($userId: String!, $siteId: String!) {
-      pageLayouts(filter: {
-        userId: { eq: $userId },
-        siteId: { eq: $siteId },
-        isPublished: { eq: true }
-      }) {
+    query GetPublicSitePages($input: DynamicQueryInput) {
+      PageLayouts(input: $input) {
         items {
-          _id
+          ItemId
           pageId
           siteId
           userId
@@ -352,9 +368,13 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
       }
     }
   `;
-  const data = await publicQuery<{ pageLayouts: UdsListResponse<PageLayoutRecord> }>(query, {
-    userId,
-    siteId,
+  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
+    input: {
+      filter: JSON.stringify({ userId, siteId, isPublished: true }),
+      sort: '{}',
+      pageNo: 1,
+      pageSize: 100,
+    },
   });
-  return (data.pageLayouts?.items ?? []).map(toPageLayout);
+  return (data.PageLayouts?.items ?? []).map(toPageLayout);
 }
