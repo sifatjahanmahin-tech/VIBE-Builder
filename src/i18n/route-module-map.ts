@@ -10,6 +10,8 @@
  */
 export const routeModuleMap: Record<string, string[]> = {
   '/dashboard': ['common', 'dashboard'],
+  '/vibe-dashboard': ['common'],
+  '/editor': ['common'],
   '/finance': ['common', 'finance'],
   '/identity-management': ['common', 'iam'],
   '/inventory': ['common', 'inventory'],

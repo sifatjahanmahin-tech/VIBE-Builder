@@ -32,6 +32,7 @@ const createMenuItemWithChildren = (
 
 export const menuItems: MenuItem[] = [
   createMenuItem('dashboard', 'DASHBOARD', '/dashboard', 'LayoutDashboard'),
+  createMenuItem('vibe-builder', 'Vibe Builder', '/vibe-dashboard', 'Wand2'),
   createMenuItem('finance', 'FINANCE', '/finance', 'ChartNoAxesCombined', {
     roles: ['admin'],
   }),
