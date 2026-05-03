@@ -141,9 +141,10 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
 
       <AddPageModal
         open={addPageOpen}
-        onClose={() => setAddPageOpen(false)}
+        onClose={() => { setAddPageOpen(false); createPageMut.reset(); }}
         onConfirm={handleAddPage}
         isLoading={createPageMut.isPending}
+        error={createPageMut.error ? (createPageMut.error as Error).message : null}
       />
     </>
   );

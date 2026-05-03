@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui-kit/dialog';
 import { Button } from '@/components/ui-kit/button';
 import { Input } from '@/components/ui-kit/input';
@@ -9,6 +10,7 @@ interface AddPageModalProps {
   onClose: () => void;
   onConfirm: (pageName: string, slug: string) => void;
   isLoading?: boolean;
+  error?: string | null;
 }
 
 function toSlug(value: string) {
@@ -19,7 +21,7 @@ function toSlug(value: string) {
     .replace(/\s+/g, '-');
 }
 
-export function AddPageModal({ open, onClose, onConfirm, isLoading }: AddPageModalProps) {
+export function AddPageModal({ open, onClose, onConfirm, isLoading, error }: AddPageModalProps) {
   const [pageName, setPageName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
@@ -72,6 +74,12 @@ export function AddPageModal({ open, onClose, onConfirm, isLoading }: AddPageMod
             />
             <p className="text-xs text-muted-foreground">Used in the live URL: /site/…/{slug || 'slug'}</p>
           </div>
+          {error && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2">
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
