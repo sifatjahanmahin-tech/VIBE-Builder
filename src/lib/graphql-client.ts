@@ -21,10 +21,9 @@ interface GraphQLClient {
 
 const projectKey = import.meta.env.VITE_X_BLOCKS_KEY || '';
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const projectSlug = import.meta.env.VITE_PROJECT_SLUG ? `/${import.meta.env.VITE_PROJECT_SLUG}` : '';
 
-// Selise Blocks Data Gateway GraphQL endpoint
-const GRAPHQL_BASE_URL = `${baseUrl}/uds/v1${projectSlug}/graphql`;
+// Selise Blocks Data Gateway GraphQL endpoint — slug goes in x-blocks-key header, not the URL
+const GRAPHQL_BASE_URL = `${baseUrl}/uds/v1/graphql`;
 
 async function gqlFetch<T>(request: GraphQLRequest): Promise<T> {
   const token = useAuthStore.getState().accessToken;

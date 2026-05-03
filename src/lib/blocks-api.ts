@@ -20,8 +20,8 @@ import { PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
 
 const projectKey = import.meta.env.VITE_X_BLOCKS_KEY || '';
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const projectSlug = import.meta.env.VITE_PROJECT_SLUG ? `/${import.meta.env.VITE_PROJECT_SLUG}` : '';
-const GRAPHQL_URL = `${baseUrl}/uds/v1${projectSlug}/graphql`;
+// Slug goes in the x-blocks-key header, not the URL
+const GRAPHQL_URL = `${baseUrl}/uds/v1/graphql`;
 
 // ---------------------------------------------------------------------------
 // Raw GraphQL response shapes
