@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\(main|index\\)\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\Vibe Builder\\\\vibe_builder\\\\src\\\\modules\\\\auth\" -Recurse -Name)",
+      "Bash(Select-Object -First 30)",
+      "Bash(node setup-schemas.js)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(npx tsc *)",
+      "Bash(node activate-user.js)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
