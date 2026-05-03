@@ -21,7 +21,7 @@ import { PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
 const projectKey = import.meta.env.VITE_X_BLOCKS_KEY || '';
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const projectSlug = import.meta.env.VITE_PROJECT_SLUG ? `/${import.meta.env.VITE_PROJECT_SLUG}` : '';
-const GRAPHQL_URL = `${baseUrl}/uds/v1${projectSlug}/gateway`;
+const GRAPHQL_URL = `${baseUrl}/uds/v1${projectSlug}/graphql`;
 
 // ---------------------------------------------------------------------------
 // Raw GraphQL response shapes
@@ -136,11 +136,19 @@ export async function createWebsite(siteName: string, userId: string): Promise<W
       }
     }
   `;
-  const data = await graphqlClient.mutate<{ insertWebsiteProject: WebsiteProjectRecord }>({
-    query: mutation,
-    variables: { input: { userId, siteName } },
-  });
-  return toWebsiteProject(data.insertWebsiteProject);
+  try {
+    const data = await graphqlClient.mutate<{ insertWebsiteProject: WebsiteProjectRecord }>({
+      query: mutation,
+      variables: { input: { userId, siteName } },
+    });
+    // eslint-disable-next-line no-console
+    console.debug('[VibeBuilder] createWebsite response:', data);
+    return toWebsiteProject(data.insertWebsiteProject);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[VibeBuilder] createWebsite failed:', err);
+    throw err;
+  }
 }
 
 export async function deleteWebsite(siteId: string): Promise<void> {

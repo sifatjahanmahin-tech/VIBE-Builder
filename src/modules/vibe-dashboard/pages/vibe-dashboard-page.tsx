@@ -11,7 +11,12 @@ export function VibeDashboardPage() {
   const createMut = useCreateWebsite();
 
   function handleCreate(name: string) {
-    createMut.mutate(name, { onSuccess: () => setCreateOpen(false) });
+    createMut.mutate(name, {
+      onSuccess: () => {
+        setCreateOpen(false);
+        createMut.reset();
+      },
+    });
   }
 
   return (
@@ -62,9 +67,10 @@ export function VibeDashboardPage() {
 
       <CreateWebsiteModal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => { setCreateOpen(false); createMut.reset(); }}
         onConfirm={handleCreate}
         isLoading={createMut.isPending}
+        error={createMut.error ? (createMut.error as Error).message : null}
       />
     </main>
   );

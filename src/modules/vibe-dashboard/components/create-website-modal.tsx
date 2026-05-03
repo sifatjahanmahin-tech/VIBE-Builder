@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui-kit/dialog';
 import { Button } from '@/components/ui-kit/button';
 import { Input } from '@/components/ui-kit/input';
@@ -9,6 +10,7 @@ interface CreateWebsiteModalProps {
   onClose: () => void;
   onConfirm: (name: string) => void;
   isLoading?: boolean;
+  error?: string | null;
 }
 
 export function CreateWebsiteModal({
@@ -16,6 +18,7 @@ export function CreateWebsiteModal({
   onClose,
   onConfirm,
   isLoading,
+  error,
 }: CreateWebsiteModalProps) {
   const [name, setName] = useState('');
 
@@ -24,11 +27,16 @@ export function CreateWebsiteModal({
     const trimmed = name.trim();
     if (!trimmed) return;
     onConfirm(trimmed);
+    // name is intentionally NOT cleared here — parent clears via onClose on success
+  }
+
+  function handleClose() {
     setName('');
+    onClose();
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create New Website</DialogTitle>
@@ -44,8 +52,16 @@ export function CreateWebsiteModal({
               autoFocus
             />
           </div>
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2">
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
               Cancel
             </Button>
             <Button type="submit" disabled={!name.trim() || isLoading}>
