@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/state/store/auth';
+import { isLocalhost } from './utils/localhost-checker/locahost-checker';
 
 interface GraphQLRequest {
   query: string;
@@ -26,14 +27,18 @@ const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const GRAPHQL_BASE_URL = `${baseUrl}/graphql/v1/graphql`;
 
 async function gqlFetch<T>(request: GraphQLRequest): Promise<T> {
-  const token = useAuthStore.getState().accessToken;
+  // Mirror the behaviour of clients.post() in src/lib/https.ts:
+  // - On localhost: send Bearer token from auth store, no credentials flag
+  // - On deployed (non-localhost): send auth cookie via credentials:'include', no token header
+  const onLocalhost = isLocalhost();
+  const token = onLocalhost ? useAuthStore.getState().accessToken : null;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'x-blocks-key': projectKey,
   };
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers['Authorization'] = `bearer ${token}`;
   }
 
   // eslint-disable-next-line no-console
@@ -42,6 +47,7 @@ async function gqlFetch<T>(request: GraphQLRequest): Promise<T> {
   const res = await fetch(GRAPHQL_BASE_URL, {
     method: 'POST',
     headers,
+    credentials: onLocalhost ? 'same-origin' : 'include',
     body: JSON.stringify({ query: request.query, variables: request.variables ?? {} }),
   });
 
