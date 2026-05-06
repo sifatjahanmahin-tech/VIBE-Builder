@@ -18,7 +18,8 @@ import { PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
 
 const projectKey = import.meta.env.VITE_X_BLOCKS_KEY || '';
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const GRAPHQL_URL = `${baseUrl}/graphql/v1/graphql`;
+const projectSlug = import.meta.env.VITE_PROJECT_SLUG || '';
+const GRAPHQL_URL = `${baseUrl}/uds/v1/${projectSlug}/gateway`;
 
 // ---------------------------------------------------------------------------
 // Helpers
