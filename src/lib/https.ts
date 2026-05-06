@@ -195,8 +195,10 @@ export const clients: Https = {
 
     const refreshTokenRes = await getRefreshToken();
 
-    if (refreshTokenRes.error === 'invalid_request') {
-      throw new HttpError(401, refreshTokenRes);
+    if (refreshTokenRes.error) {
+      authStore.logout();
+      window.location.href = '/login';
+      throw new HttpError(401, { error: 'Session expired. Please log in again.' });
     }
 
     authStore.setAccessToken(refreshTokenRes.access_token);
