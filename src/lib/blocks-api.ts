@@ -1,15 +1,14 @@
 /**
  * VibeBuilder — Blocks GraphQL API
  *
- * Endpoint : https://api.seliseblocks.com/graphql/v1/graphql
- * Pattern  : DynamicQueryInput — filter is a JSON-stringified MongoDB filter
- * Schemas  : WebsiteProject, PageLayout (created via Data Gateway)
+ * Endpoint : /uds/v1/{projectSlug}/gateway  (Selise Unified Data Service)
+ * Schemas  : WebsiteProject, PageLayout
  *
- * Query field names : schema name + 's'  (WebsiteProject → WebsiteProjects)
- * Mutations         : insert/update/deleteWebsiteProject, insert/update/deletePageLayout
- * Insert response   : { itemId, totalImpactedData, acknowledged }
- * Update/Delete     : { totalImpactedData, acknowledged }
- * Filter            : JSON.stringify({ field: value })  — passed as String variable
+ * Query fields  : get[SchemaName]s  (WebsiteProject → getWebsiteProjects)
+ * Mutations     : insert/update/delete[SchemaName]  (insertWebsiteProject …)
+ * Insert resp   : { itemId, totalImpactedData, acknowledged }
+ * Update/Delete : { totalImpactedData, acknowledged }
+ * Filter        : JSON.stringify({ field: value })
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -39,7 +38,6 @@ function formatSlugAsName(slug: string): string {
 
 // ---------------------------------------------------------------------------
 // Public (unauthenticated) GraphQL fetch — used by the live renderer
-// No Authorization header; x-blocks-key still required.
 // ---------------------------------------------------------------------------
 
 async function publicQuery<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
@@ -53,8 +51,6 @@ async function publicQuery<T>(query: string, variables: Record<string, unknown> 
   });
   if (!res.ok) {
     const text = await res.text();
-    // eslint-disable-next-line no-console
-    console.error('[VibeBuilder public] HTTP', res.status, text);
     throw new Error(`GraphQL HTTP ${res.status}: ${text}`);
   }
   const json = await res.json();
@@ -69,7 +65,7 @@ async function publicQuery<T>(query: string, variables: Record<string, unknown> 
 export async function getMyWebsites(userId: string): Promise<WebsiteProject[]> {
   const query = `
     query GetMyWebsites($input: DynamicQueryInput) {
-      WebsiteProjects(input: $input) {
+      getWebsiteProjects(input: $input) {
         totalCount
         items {
           ItemId
@@ -79,7 +75,7 @@ export async function getMyWebsites(userId: string): Promise<WebsiteProject[]> {
       }
     }
   `;
-  const data = await graphqlClient.query<{ WebsiteProjects: { items: any[] } }>({
+  const data = await graphqlClient.query<{ getWebsiteProjects: { items: any[] } }>({
     query,
     variables: {
       input: {
@@ -90,7 +86,7 @@ export async function getMyWebsites(userId: string): Promise<WebsiteProject[]> {
       },
     },
   });
-  return (data.WebsiteProjects?.items ?? []).map((r) => ({
+  return (data.getWebsiteProjects?.items ?? []).map((r) => ({
     _id: r.ItemId,
     siteId: r.ItemId,
     userId: r.userId ?? userId,
@@ -114,19 +110,16 @@ export async function createWebsite(siteName: string, userId: string): Promise<W
     query: mutation,
     variables: { input: { userId, siteName } },
   });
-  // eslint-disable-next-line no-console
-  console.debug('[VibeBuilder] createWebsite response:', data);
   const itemId = data.insertWebsiteProject.itemId;
   return { _id: itemId, siteId: itemId, userId, siteName };
 }
 
 export async function deleteWebsite(siteId: string): Promise<void> {
-  // Cascade: delete all pages first
   try {
     const pages = await getSitePages(siteId);
     await Promise.all(pages.map((p) => deletePage(p.pageId)));
   } catch {
-    // Best-effort cascade delete — continue even if pages can't be fetched
+    // best-effort cascade
   }
 
   const mutation = `
@@ -153,7 +146,7 @@ export async function deleteWebsite(siteId: string): Promise<void> {
 export async function getSitePages(siteId: string): Promise<PageLayout[]> {
   const query = `
     query GetSitePages($input: DynamicQueryInput) {
-      PageLayouts(input: $input) {
+      getPageLayouts(input: $input) {
         totalCount
         items {
           ItemId
@@ -168,7 +161,7 @@ export async function getSitePages(siteId: string): Promise<PageLayout[]> {
       }
     }
   `;
-  const data = await graphqlClient.query<{ PageLayouts: { items: any[] } }>({
+  const data = await graphqlClient.query<{ getPageLayouts: { items: any[] } }>({
     query,
     variables: {
       input: {
@@ -179,7 +172,7 @@ export async function getSitePages(siteId: string): Promise<PageLayout[]> {
       },
     },
   });
-  return (data.PageLayouts?.items ?? []).map(toPageLayout);
+  return (data.getPageLayouts?.items ?? []).map(toPageLayout);
 }
 
 export async function createPage(
@@ -230,7 +223,7 @@ export async function createPage(
 export async function getPageLayout(pageId: string): Promise<PageLayout | null> {
   const query = `
     query GetPageLayout($input: DynamicQueryInput) {
-      PageLayouts(input: $input) {
+      getPageLayouts(input: $input) {
         items {
           ItemId
           pageId
@@ -244,7 +237,7 @@ export async function getPageLayout(pageId: string): Promise<PageLayout | null> 
       }
     }
   `;
-  const data = await graphqlClient.query<{ PageLayouts: { items: any[] } }>({
+  const data = await graphqlClient.query<{ getPageLayouts: { items: any[] } }>({
     query,
     variables: {
       input: {
@@ -255,7 +248,7 @@ export async function getPageLayout(pageId: string): Promise<PageLayout | null> 
       },
     },
   });
-  const item = data.PageLayouts?.items?.[0];
+  const item = data.getPageLayouts?.items?.[0];
   return item ? toPageLayout(item) : null;
 }
 
@@ -342,7 +335,7 @@ export async function getPublicPageLayout(
 ): Promise<PageLayout | null> {
   const query = `
     query GetPublicPage($input: DynamicQueryInput) {
-      PageLayouts(input: $input) {
+      getPageLayouts(input: $input) {
         items {
           ItemId
           pageId
@@ -356,7 +349,7 @@ export async function getPublicPageLayout(
       }
     }
   `;
-  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
+  const data = await publicQuery<{ getPageLayouts: { items: any[] } }>(query, {
     input: {
       filter: JSON.stringify({ userId, slug, isPublished: true }),
       sort: '{}',
@@ -364,14 +357,14 @@ export async function getPublicPageLayout(
       pageSize: 1,
     },
   });
-  const item = data.PageLayouts?.items?.[0];
+  const item = data.getPageLayouts?.items?.[0];
   return item ? toPageLayout(item) : null;
 }
 
 export async function getPublicSitePages(userId: string, siteId: string): Promise<PageLayout[]> {
   const query = `
     query GetPublicSitePages($input: DynamicQueryInput) {
-      PageLayouts(input: $input) {
+      getPageLayouts(input: $input) {
         items {
           ItemId
           pageId
@@ -384,7 +377,7 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
       }
     }
   `;
-  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
+  const data = await publicQuery<{ getPageLayouts: { items: any[] } }>(query, {
     input: {
       filter: JSON.stringify({ userId, siteId, isPublished: true }),
       sort: '{}',
@@ -392,5 +385,5 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
       pageSize: 100,
     },
   });
-  return (data.PageLayouts?.items ?? []).map(toPageLayout);
+  return (data.getPageLayouts?.items ?? []).map(toPageLayout);
 }
