@@ -94,9 +94,11 @@ export function SiteRendererPage() {
       return;
     }
 
+    console.log('[SiteRenderer] params from URL:', { userId, slug });
     setStatus('loading');
     getPublicPageLayout(userId, slug)
       .then((layout) => {
+        console.log('[SiteRenderer] getPublicPageLayout result:', layout);
         if (!layout) {
           setStatus('not-found');
           return;
@@ -106,7 +108,10 @@ export function SiteRendererPage() {
         // Load nav pages in background
         getPublicSitePages(userId, layout.siteId).then(setNavPages).catch(() => { /* noop */ });
       })
-      .catch(() => setStatus('not-found'));
+      .catch((err) => {
+        console.error('[SiteRenderer] getPublicPageLayout error:', err);
+        setStatus('not-found');
+      });
   }, [userId, slug]);
 
   if (status === 'loading') {

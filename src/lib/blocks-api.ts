@@ -17,8 +17,8 @@ import { PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
 
 const projectKey = import.meta.env.VITE_X_BLOCKS_KEY || '';
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const projectSlug = import.meta.env.VITE_PROJECT_SLUG || '';
-const GRAPHQL_URL = `${baseUrl}/uds/v1/${projectSlug}/gateway`;
+// Public (unauthenticated) endpoint — no auth header, uses schema-name+'s' field naming
+const PUBLIC_GRAPHQL_URL = `${baseUrl}/graphql/v1/graphql`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,7 +41,11 @@ function formatSlugAsName(slug: string): string {
 // ---------------------------------------------------------------------------
 
 async function publicQuery<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(GRAPHQL_URL, {
+  console.log('[publicQuery] URL:', PUBLIC_GRAPHQL_URL);
+  console.log('[publicQuery] query:', query.trim());
+  console.log('[publicQuery] variables:', JSON.stringify(variables, null, 2));
+
+  const res = await fetch(PUBLIC_GRAPHQL_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -51,9 +55,11 @@ async function publicQuery<T>(query: string, variables: Record<string, unknown> 
   });
   if (!res.ok) {
     const text = await res.text();
+    console.error('[publicQuery] HTTP error:', res.status, text);
     throw new Error(`GraphQL HTTP ${res.status}: ${text}`);
   }
   const json = await res.json();
+  console.log('[publicQuery] response:', JSON.stringify(json, null, 2));
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data as T;
 }
@@ -335,7 +341,7 @@ export async function getPublicPageLayout(
 ): Promise<PageLayout | null> {
   const query = `
     query GetPublicPage($input: DynamicQueryInput) {
-      getPageLayouts(input: $input) {
+      PageLayouts(input: $input) {
         items {
           ItemId
           pageId
@@ -349,7 +355,7 @@ export async function getPublicPageLayout(
       }
     }
   `;
-  const data = await publicQuery<{ getPageLayouts: { items: any[] } }>(query, {
+  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
     input: {
       filter: JSON.stringify({ userId, slug, isPublished: true }),
       sort: '{}',
@@ -357,14 +363,14 @@ export async function getPublicPageLayout(
       pageSize: 1,
     },
   });
-  const item = data.getPageLayouts?.items?.[0];
+  const item = data.PageLayouts?.items?.[0];
   return item ? toPageLayout(item) : null;
 }
 
 export async function getPublicSitePages(userId: string, siteId: string): Promise<PageLayout[]> {
   const query = `
     query GetPublicSitePages($input: DynamicQueryInput) {
-      getPageLayouts(input: $input) {
+      PageLayouts(input: $input) {
         items {
           ItemId
           pageId
@@ -377,7 +383,7 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
       }
     }
   `;
-  const data = await publicQuery<{ getPageLayouts: { items: any[] } }>(query, {
+  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
     input: {
       filter: JSON.stringify({ userId, siteId, isPublished: true }),
       sort: '{}',
@@ -385,5 +391,5 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
       pageSize: 100,
     },
   });
-  return (data.getPageLayouts?.items ?? []).map(toPageLayout);
+  return (data.PageLayouts?.items ?? []).map(toPageLayout);
 }
