@@ -140,29 +140,13 @@ export async function deleteWebsite(siteId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Schema introspection helper (used to debug missing query fields)
-// ---------------------------------------------------------------------------
-
-async function getQueryFieldNames(): Promise<string[]> {
-  try {
-    const result = await graphqlClient.query<{
-      __schema: { queryType: { fields: Array<{ name: string }> } };
-    }>({ query: `{ __schema { queryType { fields { name } } } }` });
-    return result.__schema?.queryType?.fields?.map((f) => f.name) ?? [];
-  } catch {
-    return [];
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Page Layouts
 // ---------------------------------------------------------------------------
 
 export async function getSitePages(siteId: string): Promise<PageLayout[]> {
-  const FIELD = 'getPageLayouts';
   const query = `
     query GetSitePages($input: DynamicQueryInput) {
-      ${FIELD}(input: $input) {
+      getPageLayouts(input: $input) {
         totalCount
         items {
           ItemId
@@ -177,32 +161,18 @@ export async function getSitePages(siteId: string): Promise<PageLayout[]> {
       }
     }
   `;
-  try {
-    const data = await graphqlClient.query<{ [k: string]: { items: any[] } }>({
-      query,
-      variables: {
-        input: {
-          filter: JSON.stringify({ siteId }),
-          sort: '{}',
-          pageNo: 1,
-          pageSize: 100,
-        },
+  const data = await graphqlClient.query<{ getPageLayouts: { items: any[] } }>({
+    query,
+    variables: {
+      input: {
+        filter: JSON.stringify({ siteId }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 100,
       },
-    });
-    return (data[FIELD]?.items ?? []).map(toPageLayout);
-  } catch (err) {
-    const msg = (err as Error).message ?? '';
-    if (msg.includes('does not exist')) {
-      const all = await getQueryFieldNames();
-      const relevant = all.filter((n) =>
-        n.toLowerCase().includes('page') || n.toLowerCase().includes('layout')
-      );
-      throw new Error(
-        `Query field "${FIELD}" not found. Available page/layout fields: [${relevant.join(', ')}] | All fields: [${all.join(', ')}]`
-      );
-    }
-    throw err;
-  }
+    },
+  });
+  return (data.getPageLayouts?.items ?? []).map(toPageLayout);
 }
 
 export async function createPage(
