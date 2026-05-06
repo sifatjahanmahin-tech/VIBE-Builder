@@ -1,5 +1,4 @@
 import { useAuthStore } from '@/state/store/auth';
-import { isLocalhost } from './utils/localhost-checker/locahost-checker';
 
 interface GraphQLRequest {
   query: string;
@@ -43,7 +42,7 @@ async function gqlFetch<T>(request: GraphQLRequest): Promise<T> {
   const res = await fetch(GRAPHQL_BASE_URL, {
     method: 'POST',
     headers,
-    credentials: isLocalhost() ? 'same-origin' : 'include',
+    credentials: 'same-origin',
     body: JSON.stringify({ query: request.query, variables: request.variables ?? {} }),
   });
 

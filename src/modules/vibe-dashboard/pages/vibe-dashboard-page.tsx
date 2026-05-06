@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Loader2, LayoutDashboard } from 'lucide-react';
+import { Plus, Loader2, LayoutDashboard, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui-kit/button';
 import { useMyWebsites, useCreateWebsite } from '../hooks/use-websites';
 import { WebsiteCard } from '../components/website-card';
@@ -7,7 +7,7 @@ import { CreateWebsiteModal } from '../components/create-website-modal';
 
 export function VibeDashboardPage() {
   const [createOpen, setCreateOpen] = useState(false);
-  const { data: websites = [], isLoading } = useMyWebsites();
+  const { data: websites = [], isLoading, isError, error, refetch } = useMyWebsites();
   const createMut = useCreateWebsite();
 
   function handleCreate(name: string) {
@@ -40,6 +40,22 @@ export function VibeDashboardPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+          <div className="rounded-full bg-destructive/10 p-6">
+            <AlertTriangle className="h-10 w-10 text-destructive" />
+          </div>
+          <div>
+            <p className="text-lg font-medium text-destructive">Failed to load websites</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {(error as Error)?.message ?? 'An unexpected error occurred. Please try again.'}
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => refetch()} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Try Again
+          </Button>
         </div>
       ) : websites.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Pencil, Globe, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Pencil, Globe, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui-kit/button';
 import { Badge } from '@/components/ui-kit/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-kit/card';
@@ -13,12 +13,19 @@ interface WebsiteCardProps {
   site: WebsiteProject;
 }
 
+function formatPageName(page: PageLayout): string {
+  if (page.pageName && page.pageName !== page.slug) return page.pageName;
+  return page.slug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function WebsiteCard({ site }: WebsiteCardProps) {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.itemId ?? '');
   const [addPageOpen, setAddPageOpen] = useState(false);
 
-  const { data: pages = [], isLoading: pagesLoading } = useSitePages(site.siteId);
+  const { data: pages = [], isLoading: pagesLoading, isError: pagesError, refetch: refetchPages } = useSitePages(site.siteId);
   const createPageMut = useCreatePage(site.siteId);
   const deletePageMut = useDeletePage(site.siteId);
   const deleteWebsiteMut = useDeleteWebsite();
@@ -71,6 +78,14 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
         <CardContent className="flex flex-col gap-2 flex-1">
           {pagesLoading ? (
             <p className="text-sm text-muted-foreground">Loading pages…</p>
+          ) : pagesError ? (
+            <div className="flex items-center gap-2 text-destructive text-xs py-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1">Failed to load pages</span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => refetchPages()}>
+                <RefreshCw className="h-3 w-3" />
+              </Button>
+            </div>
           ) : pages.length === 0 ? (
             <p className="text-sm text-muted-foreground italic">No pages yet.</p>
           ) : (
@@ -82,7 +97,7 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
                   onClick={() => handleEditPage(page)}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium truncate">{page.pageName}</span>
+                    <span className="text-sm font-medium truncate">{formatPageName(page)}</span>
                     {page.isPublished && (
                       <Badge variant="secondary" className="text-xs gap-1 shrink-0">
                         <Globe className="h-3 w-3" />

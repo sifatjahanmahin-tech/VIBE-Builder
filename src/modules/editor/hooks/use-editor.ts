@@ -4,10 +4,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { COMPONENT_DEFINITIONS } from '@/types/vibebuilder';
 import type { ComponentType, VibeComponent, VibeComponentProps } from '@/types/vibebuilder';
 import { getPageLayout, savePageLayout, publishPage } from '@/lib/blocks-api';
+import { useToast } from '@/hooks/use-toast';
 
 const AUTO_SAVE_MS = 30_000;
 
 export function useEditor(pageId: string) {
+  const { toast } = useToast();
   const [components, setComponents] = useState<VibeComponent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
@@ -54,16 +56,23 @@ export function useEditor(pageId: string) {
     try {
       await savePageLayout(pageId, components);
       setIsDirty(false);
+    } catch (err) {
+      toast({ title: 'Save failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
-  }, [pageId, components]);
+  }, [pageId, components, toast]);
 
   const handlePublishToggle = useCallback(async () => {
     const next = !isPublished;
     setIsPublished(next);
-    await publishPage(pageId, next);
-  }, [pageId, isPublished]);
+    try {
+      await publishPage(pageId, next);
+    } catch (err) {
+      setIsPublished(!next);
+      toast({ title: 'Failed to update publish status', description: (err as Error).message, variant: 'destructive' });
+    }
+  }, [pageId, isPublished, toast]);
 
   const addComponent = useCallback((type: ComponentType) => {
     const def = COMPONENT_DEFINITIONS.find((d) => d.type === type);

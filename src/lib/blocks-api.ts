@@ -30,6 +30,12 @@ function parseComponents(raw: string | null | undefined): VibeComponent[] {
   catch { return []; }
 }
 
+function formatSlugAsName(slug: string): string {
+  return slug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // ---------------------------------------------------------------------------
 // Public (unauthenticated) GraphQL fetch — used by the live renderer
 // No Authorization header; x-blocks-key still required.
@@ -101,25 +107,27 @@ export async function createWebsite(siteName: string, userId: string): Promise<W
       }
     }
   `;
-  try {
-    const data = await graphqlClient.mutate<{
-      insertWebsiteProject: { itemId: string; totalImpactedData: number; acknowledged: boolean };
-    }>({
-      query: mutation,
-      variables: { input: { userId, siteName } },
-    });
-    // eslint-disable-next-line no-console
-    console.debug('[VibeBuilder] createWebsite response:', data);
-    const itemId = data.insertWebsiteProject.itemId;
-    return { _id: itemId, siteId: itemId, userId, siteName };
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[VibeBuilder] createWebsite failed:', err);
-    throw err;
-  }
+  const data = await graphqlClient.mutate<{
+    insertWebsiteProject: { itemId: string; totalImpactedData: number; acknowledged: boolean };
+  }>({
+    query: mutation,
+    variables: { input: { userId, siteName } },
+  });
+  // eslint-disable-next-line no-console
+  console.debug('[VibeBuilder] createWebsite response:', data);
+  const itemId = data.insertWebsiteProject.itemId;
+  return { _id: itemId, siteId: itemId, userId, siteName };
 }
 
 export async function deleteWebsite(siteId: string): Promise<void> {
+  // Cascade: delete all pages first
+  try {
+    const pages = await getSitePages(siteId);
+    await Promise.all(pages.map((p) => deletePage(p.pageId)));
+  } catch {
+    // Best-effort cascade delete — continue even if pages can't be fetched
+  }
+
   const mutation = `
     mutation DeleteWebsite($filter: String!, $input: WebsiteProjectDeleteInput!) {
       deleteWebsiteProject(filter: $filter, input: $input) {
@@ -151,6 +159,7 @@ export async function getSitePages(siteId: string): Promise<PageLayout[]> {
           pageId
           siteId
           userId
+          pageName
           slug
           isPublished
           components
@@ -198,6 +207,7 @@ export async function createPage(
         pageId,
         siteId,
         userId,
+        pageName,
         slug: pageSlug,
         isPublished: false,
         components: JSON.stringify([]),
@@ -209,7 +219,7 @@ export async function createPage(
     pageId,
     siteId,
     userId,
-    pageName: pageSlug,
+    pageName,
     slug: pageSlug,
     isPublished: false,
     components: [],
@@ -225,6 +235,7 @@ export async function getPageLayout(pageId: string): Promise<PageLayout | null> 
           pageId
           siteId
           userId
+          pageName
           slug
           isPublished
           components
@@ -306,13 +317,15 @@ export async function deletePage(pageId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function toPageLayout(r: any): PageLayout {
+  const slug = r.slug ?? r.pageId ?? '';
+  const pageName = r.pageName || formatSlugAsName(slug);
   return {
     _id: r.ItemId ?? r.pageId,
     pageId: r.pageId,
     siteId: r.siteId,
     userId: r.userId,
-    pageName: r.slug ?? r.pageId,
-    slug: r.slug,
+    pageName,
+    slug,
     isPublished: r.isPublished ?? false,
     components: parseComponents(r.components),
   };
@@ -334,6 +347,7 @@ export async function getPublicPageLayout(
           pageId
           siteId
           userId
+          pageName
           slug
           isPublished
           components
@@ -362,6 +376,7 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
           pageId
           siteId
           userId
+          pageName
           slug
           isPublished
         }
