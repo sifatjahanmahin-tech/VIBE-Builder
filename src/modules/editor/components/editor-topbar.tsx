@@ -1,6 +1,6 @@
-import { ArrowLeft, Eye, EyeOff, ExternalLink, Loader2, Save } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Cloud, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui-kit/button';
 import { useAuthStore } from '@/state/store/auth';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,8 @@ interface EditorTopbarProps {
   onSave: () => void;
   onPublishToggle: () => void;
   onPreviewToggle: () => void;
+  onRenamePage: (name: string) => void;
+  setPageName: (name: string) => void;
 }
 
 export function EditorTopbar({
@@ -26,110 +28,184 @@ export function EditorTopbar({
   onSave,
   onPublishToggle,
   onPreviewToggle,
+  onRenamePage,
+  setPageName,
 }: EditorTopbarProps) {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.itemId ?? '');
+  const [editingName, setEditingName] = useState(false);
+  const [localName, setLocalName] = useState(pageName);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  function openLiveSite() {
-    if (userId && slug) {
-      window.open(`/site/${userId}/${slug}`, '_blank', 'noopener,noreferrer');
-    }
+  useEffect(() => { setLocalName(pageName); }, [pageName]);
+
+  function startEditing() {
+    setEditingName(true);
+    setTimeout(() => inputRef.current?.select(), 0);
   }
 
+  function commitName() {
+    setEditingName(false);
+    const trimmed = localName.trim() || pageName;
+    setLocalName(trimmed);
+    if (trimmed !== pageName) onRenamePage(trimmed);
+    else setPageName(pageName);
+  }
+
+  function handleNameKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') commitName();
+    if (e.key === 'Escape') { setLocalName(pageName); setEditingName(false); }
+  }
+
+  function openLiveSite() {
+    if (userId && slug) window.open(`/site/${userId}/${slug}`, '_blank', 'noopener,noreferrer');
+  }
+
+  const saveStatus = isSaving ? 'saving' : isDirty ? 'unsaved' : 'saved';
+
   return (
-    <header className="flex items-center gap-3 px-4 h-14 border-b bg-white shrink-0 shadow-sm">
+    <header
+      className="flex items-center gap-3 px-4 shrink-0 z-10"
+      style={{ height: 56, backgroundColor: '#111111', borderBottom: '1px solid #2A2A2A' }}
+    >
       {/* Back */}
-      <Button
-        variant="ghost"
-        size="icon"
+      <button
+        type="button"
         onClick={() => navigate('/vibe-dashboard')}
         title="Back to dashboard"
-        className="text-slate-500 hover:text-slate-900"
+        className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors text-[#888888] hover:text-white hover:bg-[#2A2A2A]"
       >
         <ArrowLeft className="h-4 w-4" />
-      </Button>
+      </button>
 
-      <div className="h-5 w-px bg-slate-200" />
+      <div className="w-px h-5 bg-[#2A2A2A]" />
 
-      {/* Page name — centered */}
+      {/* Page name */}
+      <div className="flex items-center min-w-0">
+        {editingName ? (
+          <input
+            ref={inputRef}
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={handleNameKeyDown}
+            className="bg-[#1A1A1A] border border-[#FF6B35] text-white text-sm font-semibold rounded-md px-2 py-1 outline-none w-48"
+            autoFocus
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={startEditing}
+            title="Click to rename page"
+            className="text-sm font-semibold text-white hover:text-[#FF6B35] transition-colors truncate max-w-[200px] text-left"
+          >
+            {pageName || 'Untitled Page'}
+          </button>
+        )}
+      </div>
+
+      {/* Center: Edit / Preview tabs */}
       <div className="flex-1 flex justify-center">
-        <span className="font-semibold text-sm text-slate-800 truncate max-w-xs">
-          {pageName || 'Untitled Page'}
-        </span>
+        <div
+          className="flex items-center rounded-lg p-0.5 gap-0.5"
+          style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A' }}
+        >
+          <button
+            type="button"
+            onClick={() => previewMode && onPreviewToggle()}
+            className={cn(
+              'px-4 py-1.5 rounded-md text-xs font-semibold transition-all',
+              !previewMode
+                ? 'bg-[#2A2A2A] text-white shadow-sm'
+                : 'text-[#888888] hover:text-white'
+            )}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => !previewMode && onPreviewToggle()}
+            className={cn(
+              'px-4 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5',
+              previewMode
+                ? 'bg-[#2A2A2A] text-white shadow-sm'
+                : 'text-[#888888] hover:text-white'
+            )}
+          >
+            {previewMode ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            Preview
+          </button>
+        </div>
       </div>
 
       {/* Right cluster */}
       <div className="flex items-center gap-2 shrink-0">
         {/* Save status */}
-        <span
-          className={cn(
-            'text-xs font-medium px-2 py-1 rounded-full transition-colors',
-            isSaving
-              ? 'bg-amber-50 text-amber-600'
-              : isDirty
-              ? 'bg-orange-50 text-orange-500'
-              : 'bg-emerald-50 text-emerald-600'
+        <div className="flex items-center gap-1.5">
+          {saveStatus === 'saving' ? (
+            <Loader2 className="h-3.5 w-3.5 text-[#888888] animate-spin" />
+          ) : (
+            <Cloud className={cn('h-3.5 w-3.5', saveStatus === 'saved' ? 'text-emerald-400' : 'text-amber-400')} />
           )}
-        >
-          {isSaving ? 'Saving…' : isDirty ? 'Unsaved' : 'Saved'}
-        </span>
+          <span
+            className={cn(
+              'text-xs font-medium',
+              saveStatus === 'saving' ? 'text-[#888888]' :
+              saveStatus === 'saved'  ? 'text-emerald-400' : 'text-amber-400'
+            )}
+          >
+            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Unsaved'}
+          </span>
+        </div>
 
-        {/* Publish toggle */}
+        <div className="w-px h-4 bg-[#2A2A2A]" />
+
+        {/* Draft/Published pill */}
         <button
           type="button"
           onClick={onPublishToggle}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all',
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border',
             isPublished
-              ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600'
-              : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+              : 'bg-[#1A1A1A] text-[#888888] border-[#2A2A2A] hover:border-[#444] hover:text-white'
           )}
           title={isPublished ? 'Click to unpublish' : 'Click to publish'}
         >
-          <span
-            className={cn(
-              'w-2 h-2 rounded-full',
-              isPublished ? 'bg-white' : 'bg-slate-400'
-            )}
-          />
+          <span className={cn('w-1.5 h-1.5 rounded-full', isPublished ? 'bg-emerald-400' : 'bg-[#555555]')} />
           {isPublished ? 'Published' : 'Draft'}
         </button>
 
-        {/* Save */}
-        <Button
-          size="sm"
+        {/* Save button */}
+        <button
+          type="button"
           onClick={onSave}
           disabled={isSaving || !isDirty}
-          className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs"
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-[#1A1A1A] border border-[#2A2A2A] text-[#888888] hover:text-white hover:border-[#444] disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           Save
-        </Button>
+        </button>
 
-        {/* Preview toggle */}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onPreviewToggle}
-          className="gap-1.5 text-xs"
-          title={previewMode ? 'Back to editing' : 'Preview page'}
+        {/* Orange Publish button */}
+        <button
+          type="button"
+          onClick={onPublishToggle}
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-white hover:opacity-90 active:scale-95"
+          style={{ backgroundColor: '#FF6B35' }}
         >
-          {previewMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          {previewMode ? 'Edit' : 'Preview'}
-        </Button>
+          {isPublished ? 'Unpublish' : 'Publish'}
+        </button>
 
         {/* Open live site */}
         {isPublished && userId && slug && (
-          <Button
-            size="sm"
-            variant="ghost"
+          <button
+            type="button"
             onClick={openLiveSite}
-            className="gap-1.5 text-xs text-indigo-600 hover:text-indigo-700"
             title="Open live site in new tab"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-[#888888] hover:text-white hover:bg-[#2A2A2A] transition-colors"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Live
-          </Button>
+          </button>
         )}
       </div>
     </header>

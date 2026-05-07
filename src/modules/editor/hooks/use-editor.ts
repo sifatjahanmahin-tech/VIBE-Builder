@@ -3,7 +3,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { v4 as uuidv4 } from 'uuid';
 import { COMPONENT_DEFINITIONS } from '@/types/vibebuilder';
 import type { ComponentType, VibeComponent, VibeComponentProps } from '@/types/vibebuilder';
-import { getPageLayout, savePageLayout, publishPage } from '@/lib/blocks-api';
+import { getPageLayout, savePageLayout, publishPage, renamePage } from '@/lib/blocks-api';
 import { useToast } from '@/hooks/use-toast';
 
 const AUTO_SAVE_MS = 30_000;
@@ -106,6 +106,15 @@ export function useEditor(pageId: string) {
     []
   );
 
+  const handleRenamePage = useCallback(async (newName: string) => {
+    setPageName(newName);
+    try {
+      await renamePage(pageId, newName);
+    } catch (err) {
+      toast({ title: 'Failed to rename page', description: (err as Error).message, variant: 'destructive' });
+    }
+  }, [pageId, toast]);
+
   const reorderComponents = useCallback((activeId: string, overId: string) => {
     setComponents((prev) => {
       const oldIndex = prev.findIndex((c) => c.id === activeId);
@@ -130,11 +139,13 @@ export function useEditor(pageId: string) {
     siteId,
     slug,
     setSelectedId,
+    setPageName,
     addComponent,
     removeComponent,
     updateComponentProps,
     reorderComponents,
     handleSave,
     handlePublishToggle,
+    handleRenamePage,
   };
 }

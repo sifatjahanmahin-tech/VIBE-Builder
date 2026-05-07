@@ -15,8 +15,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui-kit/button';
-import { cn } from '@/lib/utils';
 import { ComponentType, VibeComponent } from '@/types/vibebuilder';
 import type {
   HeroSectionProps,
@@ -34,8 +32,6 @@ import { ContactForm } from '@/components/vibe/contact-form';
 import { Testimonial } from '@/components/vibe/testimonial';
 import { FeaturesGrid } from '@/components/vibe/features-grid';
 import { CTABanner } from '@/components/vibe/cta-banner';
-
-// ---- Shared renderer (used in preview mode) ----
 
 function renderVibeComponent(c: VibeComponent) {
   switch (c.type) {
@@ -58,26 +54,24 @@ function renderVibeComponent(c: VibeComponent) {
   }
 }
 
-// ---- Sortable item ----
-
 const TYPE_LABELS: Record<ComponentType, string> = {
   [ComponentType.Hero]: 'Hero',
   [ComponentType.TextBlock]: 'Text',
   [ComponentType.ImageGallery]: 'Gallery',
   [ComponentType.ContactForm]: 'Form',
-  [ComponentType.Testimonial]: 'Testimonial',
+  [ComponentType.Testimonial]: 'Quote',
   [ComponentType.FeaturesGrid]: 'Features',
   [ComponentType.CTABanner]: 'CTA',
 };
 
-const TYPE_COLORS: Record<ComponentType, string> = {
-  [ComponentType.Hero]: 'bg-blue-100 text-blue-700 border-blue-200',
-  [ComponentType.TextBlock]: 'bg-violet-100 text-violet-700 border-violet-200',
-  [ComponentType.ImageGallery]: 'bg-amber-100 text-amber-700 border-amber-200',
-  [ComponentType.ContactForm]: 'bg-green-100 text-green-700 border-green-200',
-  [ComponentType.Testimonial]: 'bg-rose-100 text-rose-700 border-rose-200',
-  [ComponentType.FeaturesGrid]: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-  [ComponentType.CTABanner]: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+const TYPE_ACCENT: Record<ComponentType, string> = {
+  [ComponentType.Hero]:         '#6366f1',
+  [ComponentType.TextBlock]:    '#8b5cf6',
+  [ComponentType.ImageGallery]: '#f59e0b',
+  [ComponentType.ContactForm]:  '#10b981',
+  [ComponentType.Testimonial]:  '#ec4899',
+  [ComponentType.FeaturesGrid]: '#06b6d4',
+  [ComponentType.CTABanner]:    '#FF6B35',
 };
 
 function getPreviewText(c: VibeComponent): string {
@@ -92,10 +86,10 @@ function getPreviewText(c: VibeComponent): string {
       const imgs = (p.images as string[]) ?? [];
       return `${imgs.length} image${imgs.length !== 1 ? 's' : ''}`;
     }
-    case ComponentType.ContactForm: return String(p.title ?? '');
-    case ComponentType.Testimonial: return String(p.authorName ?? '');
+    case ComponentType.ContactForm:  return String(p.title ?? '');
+    case ComponentType.Testimonial:  return String(p.authorName ?? '');
     case ComponentType.FeaturesGrid: return String(p.title ?? '');
-    case ComponentType.CTABanner: return String(p.heading ?? '');
+    case ComponentType.CTABanner:    return String(p.heading ?? '');
     default: return '';
   }
 }
@@ -112,30 +106,32 @@ function SortableItem({ component, isSelected, onSelect, onRemove }: SortableIte
     id: component.id,
   });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  };
+  const accent = TYPE_ACCENT[component.type];
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        backgroundColor: isSelected ? '#1E1E1E' : '#181818',
+        border: `1px solid ${isSelected ? accent : '#2A2A2A'}`,
+        borderLeft: `3px solid ${accent}`,
+        boxShadow: isSelected ? `0 0 0 1px ${accent}33` : 'none',
+      }}
       onClick={onSelect}
-      className={cn(
-        'flex items-center gap-3 rounded-xl border-2 px-4 py-3 cursor-pointer transition-all duration-150 group',
-        isSelected
-          ? 'border-indigo-400 bg-indigo-50 shadow-md shadow-indigo-100'
-          : 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm'
-      )}
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-all duration-150 group"
     >
       {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
         type="button"
-        className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 p-0.5 shrink-0 transition-colors"
+        className="cursor-grab active:cursor-grabbing p-0.5 shrink-0 transition-colors"
+        style={{ color: '#444' }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#888'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = '#444'; }}
         onClick={(e) => e.stopPropagation()}
         aria-label="Drag to reorder"
       >
@@ -144,35 +140,32 @@ function SortableItem({ component, isSelected, onSelect, onRemove }: SortableIte
 
       {/* Type badge */}
       <span
-        className={cn(
-          'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0',
-          TYPE_COLORS[component.type]
-        )}
+        className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0"
+        style={{ backgroundColor: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
       >
         {TYPE_LABELS[component.type]}
       </span>
 
       {/* Preview text */}
-      <span className="text-sm text-slate-500 truncate flex-1">{getPreviewText(component)}</span>
+      <span className="text-sm truncate flex-1" style={{ color: '#888888' }}>
+        {getPreviewText(component)}
+      </span>
 
       {/* Delete */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
+      <button
+        type="button"
+        className="h-6 w-6 shrink-0 flex items-center justify-center rounded transition-all opacity-0 group-hover:opacity-100"
+        style={{ color: '#555' }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = '#ef444415'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
         title="Remove block"
       >
         <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      </button>
     </div>
   );
 }
-
-// ---- Canvas ----
 
 interface EditorCanvasProps {
   components: VibeComponent[];
@@ -222,16 +215,29 @@ export function EditorCanvas({
 
   // Edit mode
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-100/70 p-6">
+    <div
+      className="flex-1 overflow-y-auto p-6"
+      style={{
+        backgroundColor: '#1E1E1E',
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#2A2A2A transparent',
+      }}
+    >
       <div className="max-w-2xl mx-auto">
         {components.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[320px] rounded-2xl border-2 border-dashed border-slate-300 bg-white text-center gap-3 p-8">
-            <div className="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center">
+          <div
+            className="flex flex-col items-center justify-center min-h-[320px] rounded-xl text-center gap-4 p-8"
+            style={{ border: '2px dashed #2A2A2A' }}
+          >
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: '#252525' }}
+            >
               <span className="text-2xl">🧱</span>
             </div>
             <div>
-              <p className="text-base font-semibold text-slate-700">Canvas is empty</p>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-base font-semibold text-white">Canvas is empty</p>
+              <p className="text-sm mt-1" style={{ color: '#555' }}>
                 Pick a block from the left panel to get started.
               </p>
             </div>
@@ -246,7 +252,7 @@ export function EditorCanvas({
               items={components.map((c) => c.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {components.map((component) => (
                   <SortableItem
                     key={component.id}

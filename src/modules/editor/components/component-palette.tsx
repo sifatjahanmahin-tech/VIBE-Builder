@@ -1,32 +1,22 @@
+import { useState } from 'react';
+import { LayoutTemplate, Type, Images, Mail, Quote, Zap, Megaphone, Search } from 'lucide-react';
 import { ComponentType, COMPONENT_DEFINITIONS } from '@/types/vibebuilder';
 
-const ICONS: Record<ComponentType, string> = {
-  [ComponentType.Hero]:        '🖼️',
-  [ComponentType.TextBlock]:   '📝',
-  [ComponentType.ImageGallery]:'🗃️',
-  [ComponentType.ContactForm]: '✉️',
-  [ComponentType.Testimonial]: '💬',
-  [ComponentType.FeaturesGrid]:'⚡',
-  [ComponentType.CTABanner]:   '🚀',
+const ICONS: Record<ComponentType, React.ReactNode> = {
+  [ComponentType.Hero]:         <LayoutTemplate className="h-5 w-5" />,
+  [ComponentType.TextBlock]:    <Type className="h-5 w-5" />,
+  [ComponentType.ImageGallery]: <Images className="h-5 w-5" />,
+  [ComponentType.ContactForm]:  <Mail className="h-5 w-5" />,
+  [ComponentType.Testimonial]:  <Quote className="h-5 w-5" />,
+  [ComponentType.FeaturesGrid]: <Zap className="h-5 w-5" />,
+  [ComponentType.CTABanner]:    <Megaphone className="h-5 w-5" />,
 };
 
 const CATEGORIES: { label: string; types: ComponentType[] }[] = [
-  {
-    label: 'Layout',
-    types: [ComponentType.Hero, ComponentType.CTABanner],
-  },
-  {
-    label: 'Content',
-    types: [ComponentType.TextBlock, ComponentType.Testimonial, ComponentType.FeaturesGrid],
-  },
-  {
-    label: 'Media',
-    types: [ComponentType.ImageGallery],
-  },
-  {
-    label: 'Interactive',
-    types: [ComponentType.ContactForm],
-  },
+  { label: 'Layout',      types: [ComponentType.Hero, ComponentType.CTABanner] },
+  { label: 'Content',     types: [ComponentType.TextBlock, ComponentType.Testimonial, ComponentType.FeaturesGrid] },
+  { label: 'Media',       types: [ComponentType.ImageGallery] },
+  { label: 'Interactive', types: [ComponentType.ContactForm] },
 ];
 
 interface ComponentPaletteProps {
@@ -34,49 +24,106 @@ interface ComponentPaletteProps {
 }
 
 export function ComponentPalette({ onAdd }: ComponentPaletteProps) {
+  const [query, setQuery] = useState('');
+
+  const allDefs = COMPONENT_DEFINITIONS.filter((d) =>
+    !query || d.label.toLowerCase().includes(query.toLowerCase()) || d.description.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const filteredCategories = query
+    ? [{ label: 'Results', types: allDefs.map((d) => d.type) }]
+    : CATEGORIES;
+
   return (
-    <aside className="w-60 shrink-0 border-r bg-slate-50 flex flex-col overflow-y-auto">
-      <div className="px-4 py-3.5 border-b bg-white">
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Add Blocks</p>
+    <aside
+      className="shrink-0 flex flex-col overflow-hidden"
+      style={{ width: 280, backgroundColor: '#141414', borderRight: '1px solid #2A2A2A' }}
+    >
+      {/* Header */}
+      <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid #2A2A2A' }}>
+        <p className="text-[10px] font-bold tracking-widest uppercase mb-3" style={{ color: '#888888' }}>
+          Blocks
+        </p>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#555' }} />
+          <input
+            type="search"
+            placeholder="Search blocks…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg outline-none transition-colors"
+            style={{
+              backgroundColor: '#1A1A1A',
+              border: '1px solid #2A2A2A',
+              color: '#FFFFFF',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+          />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1 p-3 flex-1">
-        {CATEGORIES.map((cat) => {
+      {/* Blocks list */}
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: '#2A2A2A transparent' }}
+      >
+        {filteredCategories.map((cat) => {
           const defs = COMPONENT_DEFINITIONS.filter((d) => cat.types.includes(d.type));
+          if (!defs.length) return null;
           return (
-            <div key={cat.label} className="mb-2">
-              <p className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <div key={cat.label}>
+              <p
+                className="text-[10px] font-bold tracking-widest uppercase px-1 mb-2"
+                style={{ color: '#555555' }}
+              >
                 {cat.label}
               </p>
-              {defs.map((def) => (
-                <button
-                  key={def.type}
-                  type="button"
-                  onClick={() => onAdd(def.type)}
-                  className="w-full flex items-start gap-3 rounded-xl px-3 py-2.5 text-left
-                             hover:bg-indigo-50 hover:shadow-sm active:scale-[0.98]
-                             transition-all duration-150 group select-none mb-0.5"
-                >
-                  <span className="text-xl shrink-0 mt-0.5">{ICONS[def.type]}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-700 group-hover:text-indigo-700 leading-tight">
+              <div className="grid grid-cols-2 gap-1.5">
+                {defs.map((def) => (
+                  <button
+                    key={def.type}
+                    type="button"
+                    onClick={() => onAdd(def.type)}
+                    className="flex flex-col items-center gap-2 rounded-lg p-3 text-center transition-all duration-150 group select-none"
+                    style={{ backgroundColor: '#1E1E1E', border: '1px solid #2A2A2A' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#FF6B35';
+                      e.currentTarget.style.backgroundColor = '#252525';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#2A2A2A';
+                      e.currentTarget.style.backgroundColor = '#1E1E1E';
+                    }}
+                    title={def.description}
+                  >
+                    <span style={{ color: '#888888' }} className="group-hover:text-[#FF6B35] transition-colors">
+                      {ICONS[def.type]}
+                    </span>
+                    <span className="text-[11px] font-medium leading-tight text-white">
                       {def.label}
-                    </p>
-                    <p className="text-[11px] text-slate-400 leading-snug mt-0.5 truncate">
-                      {def.description}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           );
         })}
+
+        {filteredCategories.every((cat) =>
+          !COMPONENT_DEFINITIONS.filter((d) => cat.types.includes(d.type)).length
+        ) && (
+          <p className="text-xs text-center py-8" style={{ color: '#555' }}>
+            No blocks match &ldquo;{query}&rdquo;
+          </p>
+        )}
       </div>
 
-      <div className="px-4 py-3 border-t bg-white">
-        <p className="text-[11px] text-slate-400 text-center">
-          Click a block to add it to the canvas
-        </p>
+      {/* Footer hint */}
+      <div
+        className="px-4 py-2.5 text-center shrink-0"
+        style={{ borderTop: '1px solid #2A2A2A' }}
+      >
+        <p className="text-[10px]" style={{ color: '#444' }}>Click to add block to canvas</p>
       </div>
     </aside>
   );

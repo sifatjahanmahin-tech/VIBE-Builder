@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { useEditor } from '../hooks/use-editor';
 import { EditorTopbar } from '../components/editor-topbar';
 import { ComponentPalette } from '../components/component-palette';
@@ -22,12 +21,14 @@ export function EditorPage() {
     pageName,
     slug,
     setSelectedId,
+    setPageName,
     addComponent,
     removeComponent,
     updateComponentProps,
     reorderComponents,
     handleSave,
     handlePublishToggle,
+    handleRenamePage,
   } = useEditor(pageId);
 
   // Ctrl+S to save
@@ -44,17 +45,26 @@ export function EditorPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div
+        className="flex h-screen items-center justify-center"
+        style={{ backgroundColor: '#0A0A0A' }}
+      >
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-          <p className="text-sm text-muted-foreground">Loading editor…</p>
+          <div
+            className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: '#FF6B35', borderTopColor: 'transparent' }}
+          />
+          <p className="text-sm" style={{ color: '#666' }}>Loading editor…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div
+      className="flex flex-col h-screen overflow-hidden"
+      style={{ backgroundColor: '#0A0A0A' }}
+    >
       <EditorTopbar
         pageName={pageName}
         slug={slug}
@@ -65,6 +75,8 @@ export function EditorPage() {
         onSave={handleSave}
         onPublishToggle={handlePublishToggle}
         onPreviewToggle={() => setPreviewMode((p) => !p)}
+        onRenamePage={handleRenamePage}
+        setPageName={setPageName}
       />
 
       <div className="flex flex-1 overflow-hidden">

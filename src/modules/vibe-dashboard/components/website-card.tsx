@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Pencil, Globe, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui-kit/button';
 import { useAuthStore } from '@/state/store/auth';
 import { WebsiteProject, PageLayout } from '@/types/vibebuilder';
 import { useSitePages, useCreatePage, useDeletePage, useDeleteWebsite } from '../hooks/use-websites';
@@ -11,20 +10,13 @@ interface WebsiteCardProps {
   site: WebsiteProject;
 }
 
-const GRADIENTS = [
-  'from-indigo-500 to-violet-600',
-  'from-blue-500 to-cyan-500',
-  'from-emerald-500 to-teal-600',
-  'from-orange-500 to-red-500',
-  'from-pink-500 to-rose-600',
-  'from-amber-500 to-orange-500',
-  'from-teal-500 to-green-500',
-  'from-violet-500 to-purple-600',
+const ACCENT_COLORS = [
+  '#FF6B35', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#ef4444',
 ];
 
-function getSiteGradient(name: string): string {
+function getSiteAccent(name: string): string {
   const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return GRADIENTS[hash % GRADIENTS.length];
+  return ACCENT_COLORS[hash % ACCENT_COLORS.length];
 }
 
 function formatPageName(page: PageLayout): string {
@@ -36,7 +28,7 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.itemId ?? '');
   const [addPageOpen, setAddPageOpen] = useState(false);
-  const gradient = getSiteGradient(site.siteName);
+  const accent = getSiteAccent(site.siteName);
 
   const {
     data: pages = [],
@@ -77,64 +69,90 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
 
   return (
     <>
-      <div className="group rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col">
-
-        {/* Gradient thumbnail */}
-        <div className={`bg-gradient-to-br ${gradient} px-5 py-6 flex items-end justify-between`}>
-          <div className="flex flex-col gap-1">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white font-black text-xl">
+      <div
+        className="rounded-xl overflow-hidden flex flex-col group transition-all duration-200 hover:-translate-y-0.5"
+        style={{ backgroundColor: '#141414', border: '1px solid #2A2A2A' }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3A'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+      >
+        {/* Accent header strip */}
+        <div
+          className="px-5 py-5 flex items-end justify-between"
+          style={{ background: `linear-gradient(135deg, ${accent}22, ${accent}08)`, borderBottom: '1px solid #2A2A2A' }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg"
+              style={{ backgroundColor: accent }}
+            >
               {site.siteName.charAt(0).toUpperCase()}
             </div>
+            <div>
+              <h3 className="font-bold text-white text-sm leading-tight">{site.siteName}</h3>
+              {!pagesLoading && !pagesError && (
+                <span className="text-[10px]" style={{ color: '#666' }}>
+                  {pages.length} page{pages.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+          <button
+            type="button"
+            className="flex items-center justify-center w-7 h-7 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+            style={{ color: '#555' }}
             onClick={handleDeleteSite}
             disabled={deleteWebsiteMut.isPending}
             title="Delete website"
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = '#ef444415'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; e.currentTarget.style.backgroundColor = 'transparent'; }}
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {/* Card body */}
-        <div className="flex flex-col gap-3 p-4 flex-1">
-          {/* Site name + page count */}
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-slate-800 text-base leading-tight">{site.siteName}</h3>
-            {!pagesLoading && !pagesError && (
-              <span className="shrink-0 text-[11px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                {pages.length} page{pages.length !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-
+        <div className="flex flex-col gap-2 p-4 flex-1">
           {/* Pages */}
           {pagesLoading ? (
-            <p className="text-xs text-slate-400 italic">Loading pages…</p>
+            <p className="text-xs italic" style={{ color: '#555' }}>Loading pages…</p>
           ) : pagesError ? (
-            <div className="flex items-center gap-2 text-red-400 text-xs py-1">
+            <div className="flex items-center gap-2 text-xs py-1" style={{ color: '#ef4444' }}>
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1">{(pagesErrorObj as Error)?.message || 'Failed to load'}</span>
-              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => refetchPages()}>
+              <button
+                type="button"
+                className="w-5 h-5 flex items-center justify-center"
+                onClick={() => refetchPages()}
+              >
                 <RefreshCw className="h-3 w-3" />
-              </Button>
+              </button>
             </div>
           ) : pages.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">No pages yet — add one below.</p>
+            <p className="text-xs italic" style={{ color: '#555' }}>No pages yet — add one below.</p>
           ) : (
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-0.5">
               {pages.map((page) => (
                 <li
                   key={page.pageId}
                   onClick={() => handleEditPage(page)}
-                  className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 cursor-pointer group/page transition-colors border border-transparent hover:border-slate-200"
+                  className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 cursor-pointer group/page transition-colors"
+                  style={{ border: '1px solid transparent' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1E1E1E';
+                    e.currentTarget.style.borderColor = '#2A2A2A';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.borderColor = 'transparent';
+                  }}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm font-medium text-slate-700 truncate">{formatPageName(page)}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium text-white truncate">{formatPageName(page)}</span>
                     {page.isPublished && (
-                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                      <span
+                        className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ color: '#10b981', backgroundColor: '#10b98115', border: '1px solid #10b98130' }}
+                      >
                         <Globe className="h-2.5 w-2.5" />
                         Live
                       </span>
@@ -142,35 +160,41 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover/page:opacity-100 transition-opacity">
                     {page.isPublished && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-slate-400 hover:text-indigo-600"
+                      <button
+                        type="button"
+                        className="w-6 h-6 flex items-center justify-center rounded transition-colors"
+                        style={{ color: '#555' }}
                         onClick={(e) => handleViewLive(e, page)}
                         title="View live"
+                        onMouseEnter={(e) => { e.currentTarget.style.color = '#FF6B35'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
                       >
                         <ExternalLink className="h-3 w-3" />
-                      </Button>
+                      </button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-slate-400 hover:text-indigo-600"
+                    <button
+                      type="button"
+                      className="w-6 h-6 flex items-center justify-center rounded transition-colors"
+                      style={{ color: '#555' }}
                       onClick={(e) => { e.stopPropagation(); handleEditPage(page); }}
                       title="Edit page"
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#FF6B35'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
                     >
                       <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-slate-400 hover:text-red-500"
+                    </button>
+                    <button
+                      type="button"
+                      className="w-6 h-6 flex items-center justify-center rounded transition-colors"
+                      style={{ color: '#555' }}
                       onClick={(e) => handleDeletePage(e, page.pageId)}
                       disabled={deletePageMut.isPending}
                       title="Delete page"
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
                     >
                       <Trash2 className="h-3 w-3" />
-                    </Button>
+                    </button>
                   </div>
                 </li>
               ))}
@@ -178,15 +202,29 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
           )}
 
           {/* Add page button */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-auto gap-1.5 text-xs border-dashed hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+          <button
+            type="button"
+            className="mt-auto flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-all"
+            style={{
+              color: '#666',
+              border: '1px dashed #2A2A2A',
+              backgroundColor: 'transparent',
+            }}
             onClick={() => setAddPageOpen(true)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#FF6B35';
+              e.currentTarget.style.borderColor = '#FF6B35';
+              e.currentTarget.style.backgroundColor = '#FF6B3508';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#666';
+              e.currentTarget.style.borderColor = '#2A2A2A';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
             <Plus className="h-3.5 w-3.5" />
             Add Page
-          </Button>
+          </button>
         </div>
       </div>
 

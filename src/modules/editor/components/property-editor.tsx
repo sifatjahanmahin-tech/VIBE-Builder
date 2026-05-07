@@ -10,52 +10,144 @@ import type {
   TextAlignment,
   FeatureItem,
 } from '@/types/vibebuilder';
-import { Input } from '@/components/ui-kit/input';
-import { Label } from '@/components/ui-kit/label';
-import { Textarea } from '@/components/ui-kit/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-kit/select';
-import { Button } from '@/components/ui-kit/button';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, SlidersHorizontal } from 'lucide-react';
 
 interface PropertyEditorProps {
   component: VibeComponent | null;
   onChange: (patch: Partial<VibeComponentProps>) => void;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// ---- Dark-themed field components ----
+
+const inputStyle: React.CSSProperties = {
+  backgroundColor: '#1A1A1A',
+  border: '1px solid #2A2A2A',
+  color: '#FFFFFF',
+  borderRadius: 6,
+  padding: '7px 10px',
+  fontSize: 12,
+  width: '100%',
+  outline: 'none',
+  transition: 'border-color 0.15s',
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: '#666666',
+  marginBottom: 6,
+  display: 'block',
+};
+
+function DField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{label}</Label>
+    <div style={{ marginBottom: 14 }}>
+      <label style={labelStyle}>{label}</label>
       {children}
     </div>
   );
 }
 
-function ColorField({
-  label,
-  value,
-  onChange,
-}: {
+function DInput({ value, onChange, placeholder, type = 'text' }: {
+  value: string | number;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={inputStyle}
+      onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+    />
+  );
+}
+
+function DTextarea({ value, onChange, rows = 3 }: {
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={rows}
+      style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+    />
+  );
+}
+
+function DSelect({ value, onChange, options }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ ...inputStyle, cursor: 'pointer' }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value} style={{ backgroundColor: '#1A1A1A' }}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function DColorField({ label, value, onChange }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <Field label={label}>
-      <div className="flex gap-2 items-center">
+    <DField label={label}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-10 rounded-lg border cursor-pointer p-0.5 shrink-0"
+          style={{
+            width: 36, height: 34, borderRadius: 6, border: '1px solid #2A2A2A',
+            cursor: 'pointer', padding: 2, backgroundColor: '#1A1A1A', flexShrink: 0,
+          }}
         />
-        <Input
+        <input
+          type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 font-mono text-xs"
+          style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
         />
       </div>
-    </Field>
+    </DField>
+  );
+}
+
+// ---- Section wrapper with collapsible header ----
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ borderBottom: '1px solid #222222', paddingBottom: 16, marginBottom: 4 }}>
+      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#555555', marginBottom: 12 }}>
+        {title}
+      </p>
+      {children}
+    </div>
   );
 }
 
@@ -64,114 +156,122 @@ function ColorField({
 function HeroForm({ props, onChange }: { props: HeroSectionProps; onChange: (p: Partial<HeroSectionProps>) => void }) {
   return (
     <>
-      <Field label="Heading">
-        <Input value={props.heading} onChange={(e) => onChange({ heading: e.target.value })} />
-      </Field>
-      <Field label="Subtext">
-        <Textarea value={props.subtext} rows={3} onChange={(e) => onChange({ subtext: e.target.value })} />
-      </Field>
-      <Field label="CTA Button Text">
-        <Input value={props.ctaText} onChange={(e) => onChange({ ctaText: e.target.value })} />
-      </Field>
-      <Field label="Alignment">
-        <Select
-          value={props.alignment ?? 'left'}
-          onValueChange={(v) => onChange({ alignment: v as 'left' | 'center' | 'right' })}
-        >
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {(['left', 'center', 'right'] as const).map((a) => (
-              <SelectItem key={a} value={a}>{a.charAt(0).toUpperCase() + a.slice(1)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <ColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
-      <Field label="Gradient From (optional)">
-        <div className="flex gap-2 items-center">
-          <input
-            type="color"
-            value={props.gradientFrom ?? props.bgColor}
-            onChange={(e) => onChange({ gradientFrom: e.target.value })}
-            className="h-9 w-10 rounded-lg border cursor-pointer p-0.5 shrink-0"
+      <Section title="Content">
+        <DField label="Heading">
+          <DInput value={props.heading} onChange={(v) => onChange({ heading: v })} />
+        </DField>
+        <DField label="Subtext">
+          <DTextarea value={props.subtext} rows={3} onChange={(v) => onChange({ subtext: v })} />
+        </DField>
+        <DField label="CTA Button Text">
+          <DInput value={props.ctaText} onChange={(v) => onChange({ ctaText: v })} />
+        </DField>
+      </Section>
+      <Section title="Appearance">
+        <DField label="Alignment">
+          <DSelect
+            value={props.alignment ?? 'left'}
+            onChange={(v) => onChange({ alignment: v as 'left' | 'center' | 'right' })}
+            options={[
+              { value: 'left', label: 'Left' },
+              { value: 'center', label: 'Center' },
+              { value: 'right', label: 'Right' },
+            ]}
           />
-          <Input
-            value={props.gradientFrom ?? ''}
-            placeholder="Leave empty for solid"
-            onChange={(e) => onChange({ gradientFrom: e.target.value || undefined })}
-            className="flex-1 font-mono text-xs"
-          />
-        </div>
-      </Field>
-      <Field label="Gradient To (optional)">
-        <div className="flex gap-2 items-center">
-          <input
-            type="color"
-            value={props.gradientTo ?? props.bgColor}
-            onChange={(e) => onChange({ gradientTo: e.target.value })}
-            className="h-9 w-10 rounded-lg border cursor-pointer p-0.5 shrink-0"
-          />
-          <Input
-            value={props.gradientTo ?? ''}
-            placeholder="Leave empty for solid"
-            onChange={(e) => onChange({ gradientTo: e.target.value || undefined })}
-            className="flex-1 font-mono text-xs"
-          />
-        </div>
-      </Field>
-      <Field label="Image URL">
-        <Input value={props.imageUrl} placeholder="https://…" onChange={(e) => onChange({ imageUrl: e.target.value })} />
-      </Field>
-      {props.imageUrl && (
-        <Field label="Image Overlay Opacity">
-          <div className="flex items-center gap-2">
+        </DField>
+        <DColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
+        <DField label="Gradient From (optional)">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={props.overlayOpacity ?? 0.3}
-              onChange={(e) => onChange({ overlayOpacity: Number(e.target.value) })}
-              className="flex-1"
+              type="color"
+              value={props.gradientFrom ?? props.bgColor}
+              onChange={(e) => onChange({ gradientFrom: e.target.value })}
+              style={{ width: 36, height: 34, borderRadius: 6, border: '1px solid #2A2A2A', cursor: 'pointer', padding: 2, backgroundColor: '#1A1A1A', flexShrink: 0 }}
             />
-            <span className="text-xs text-slate-500 w-8 text-right">
-              {Math.round((props.overlayOpacity ?? 0.3) * 100)}%
-            </span>
+            <input
+              type="text"
+              value={props.gradientFrom ?? ''}
+              placeholder="Leave empty for solid"
+              onChange={(e) => onChange({ gradientFrom: e.target.value || undefined })}
+              style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+            />
           </div>
-        </Field>
-      )}
+        </DField>
+        <DField label="Gradient To (optional)">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="color"
+              value={props.gradientTo ?? props.bgColor}
+              onChange={(e) => onChange({ gradientTo: e.target.value })}
+              style={{ width: 36, height: 34, borderRadius: 6, border: '1px solid #2A2A2A', cursor: 'pointer', padding: 2, backgroundColor: '#1A1A1A', flexShrink: 0 }}
+            />
+            <input
+              type="text"
+              value={props.gradientTo ?? ''}
+              placeholder="Leave empty for solid"
+              onChange={(e) => onChange({ gradientTo: e.target.value || undefined })}
+              style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+            />
+          </div>
+        </DField>
+        <DField label="Background Image URL">
+          <DInput value={props.imageUrl} placeholder="https://…" onChange={(v) => onChange({ imageUrl: v })} />
+        </DField>
+        {props.imageUrl && (
+          <DField label="Image Overlay Opacity">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="range"
+                min={0} max={1} step={0.05}
+                value={props.overlayOpacity ?? 0.3}
+                onChange={(e) => onChange({ overlayOpacity: Number(e.target.value) })}
+                style={{ flex: 1, accentColor: '#FF6B35' }}
+              />
+              <span style={{ fontSize: 11, color: '#888', width: 30, textAlign: 'right' }}>
+                {Math.round((props.overlayOpacity ?? 0.3) * 100)}%
+              </span>
+            </div>
+          </DField>
+        )}
+      </Section>
     </>
   );
 }
 
 function TextBlockForm({ props, onChange }: { props: TextBlockProps; onChange: (p: Partial<TextBlockProps>) => void }) {
-  const alignments: TextAlignment[] = ['left', 'center', 'right', 'justify'];
-  const fontSizes = ['12px', '14px', '16px', '18px', '20px', '24px', '30px', '36px', '48px'];
-
   return (
     <>
-      <Field label="Content">
-        <Textarea value={props.content} rows={5} onChange={(e) => onChange({ content: e.target.value })} />
-      </Field>
-      <Field label="Font Size">
-        <Select value={props.fontSize} onValueChange={(v) => onChange({ fontSize: v })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {fontSizes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </Field>
-      <ColorField label="Text Color" value={props.textColor} onChange={(v) => onChange({ textColor: v })} />
-      <Field label="Alignment">
-        <Select value={props.alignment} onValueChange={(v) => onChange({ alignment: v as TextAlignment })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {alignments.map((a) => (
-              <SelectItem key={a} value={a}>{a.charAt(0).toUpperCase() + a.slice(1)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
+      <Section title="Content">
+        <DField label="Content">
+          <DTextarea value={props.content} rows={5} onChange={(v) => onChange({ content: v })} />
+        </DField>
+      </Section>
+      <Section title="Typography">
+        <DField label="Font Size">
+          <DSelect
+            value={props.fontSize}
+            onChange={(v) => onChange({ fontSize: v })}
+            options={['12px','14px','16px','18px','20px','24px','30px','36px','48px'].map((s) => ({ value: s, label: s }))}
+          />
+        </DField>
+        <DColorField label="Text Color" value={props.textColor} onChange={(v) => onChange({ textColor: v })} />
+        <DField label="Alignment">
+          <DSelect
+            value={props.alignment}
+            onChange={(v) => onChange({ alignment: v as TextAlignment })}
+            options={[
+              { value: 'left', label: 'Left' },
+              { value: 'center', label: 'Center' },
+              { value: 'right', label: 'Right' },
+              { value: 'justify', label: 'Justify' },
+            ]}
+          />
+        </DField>
+      </Section>
     </>
   );
 }
@@ -185,48 +285,51 @@ function ImageGalleryForm({ props, onChange }: { props: ImageGalleryProps; onCha
 
   return (
     <>
-      <Field label="Images (URLs)">
-        <div className="flex flex-col gap-1.5">
+      <Section title="Images">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {props.images.map((url, idx) => (
-            <div key={idx} className="flex gap-1">
-              <Input
+            <div key={idx} style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="text"
                 value={url}
                 placeholder="https://…"
                 onChange={(e) => handleImageChange(idx, e.target.value)}
-                className="flex-1 text-xs"
+                style={{ ...inputStyle, fontSize: 11 }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
               />
               <button
                 type="button"
                 onClick={() => onChange({ images: props.images.filter((_, i) => i !== idx) })}
-                className="px-2 text-slate-400 hover:text-red-500 transition-colors"
-                aria-label="Remove image"
+                style={{ color: '#555', padding: '0 6px', flexShrink: 0 }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 style={{ width: 13, height: 13 }} />
               </button>
             </div>
           ))}
           <button
             type="button"
             onClick={() => onChange({ images: [...props.images, ''] })}
-            className="text-xs text-indigo-600 hover:underline text-left"
+            style={{ fontSize: 11, color: '#FF6B35', textAlign: 'left', marginTop: 2 }}
           >
             + Add image URL
           </button>
         </div>
-      </Field>
-      <Field label="Columns">
-        <Select value={String(props.columns)} onValueChange={(v) => onChange({ columns: Number(v) })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {[1, 2, 3, 4].map((n) => (
-              <SelectItem key={n} value={String(n)}>{n} {n === 1 ? 'column' : 'columns'}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field label="Gap (px)">
-        <Input type="number" min={0} max={64} value={props.gap} onChange={(e) => onChange({ gap: Number(e.target.value) })} />
-      </Field>
+      </Section>
+      <Section title="Layout">
+        <DField label="Columns">
+          <DSelect
+            value={String(props.columns)}
+            onChange={(v) => onChange({ columns: Number(v) })}
+            options={[1,2,3,4].map((n) => ({ value: String(n), label: `${n} ${n === 1 ? 'column' : 'columns'}` }))}
+          />
+        </DField>
+        <DField label="Gap (px)">
+          <DInput type="number" value={props.gap} onChange={(v) => onChange({ gap: Number(v) })} />
+        </DField>
+      </Section>
     </>
   );
 }
@@ -234,26 +337,33 @@ function ImageGalleryForm({ props, onChange }: { props: ImageGalleryProps; onCha
 function ContactFormForm({ props, onChange }: { props: ContactFormProps; onChange: (p: Partial<ContactFormProps>) => void }) {
   return (
     <>
-      <Field label="Form Title">
-        <Input value={props.title} onChange={(e) => onChange({ title: e.target.value })} />
-      </Field>
-      <Field label="Submit Button Text">
-        <Input value={props.submitText} onChange={(e) => onChange({ submitText: e.target.value })} />
-      </Field>
-      <Field label="Fields">
-        <p className="text-xs text-slate-400">
-          {props.fields.length} field{props.fields.length !== 1 ? 's' : ''} configured.
-        </p>
-        <div className="flex flex-col gap-1 mt-1">
-          {props.fields.map((f, idx) => (
-            <div key={idx} className="flex items-center gap-2 rounded-lg border px-2 py-1.5 bg-slate-50">
-              <span className="text-xs flex-1 truncate font-medium">{f.label}</span>
-              <span className="text-xs text-slate-400">{f.type}</span>
-              {f.required && <span className="text-xs text-red-400 font-semibold">*</span>}
-            </div>
-          ))}
-        </div>
-      </Field>
+      <Section title="Form">
+        <DField label="Form Title">
+          <DInput value={props.title} onChange={(v) => onChange({ title: v })} />
+        </DField>
+        <DField label="Submit Button Text">
+          <DInput value={props.submitText} onChange={(v) => onChange({ submitText: v })} />
+        </DField>
+        <DField label="Fields">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {props.fields.map((f, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A',
+                  borderRadius: 6, padding: '6px 10px',
+                }}
+              >
+                <span style={{ fontSize: 12, color: '#fff', flex: 1 }}>{f.label}</span>
+                <span style={{ fontSize: 10, color: '#666' }}>{f.type}</span>
+                {f.required && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>*</span>}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 10, color: '#555', marginTop: 6 }}>Field editing coming soon.</p>
+        </DField>
+      </Section>
     </>
   );
 }
@@ -261,19 +371,23 @@ function ContactFormForm({ props, onChange }: { props: ContactFormProps; onChang
 function TestimonialForm({ props, onChange }: { props: TestimonialProps; onChange: (p: Partial<TestimonialProps>) => void }) {
   return (
     <>
-      <Field label="Quote">
-        <Textarea value={props.quote} rows={4} onChange={(e) => onChange({ quote: e.target.value })} />
-      </Field>
-      <Field label="Author Name">
-        <Input value={props.authorName} onChange={(e) => onChange({ authorName: e.target.value })} />
-      </Field>
-      <Field label="Author Role">
-        <Input value={props.authorRole} placeholder="CEO, Company" onChange={(e) => onChange({ authorRole: e.target.value })} />
-      </Field>
-      <Field label="Author Image URL">
-        <Input value={props.authorImage} placeholder="https://…" onChange={(e) => onChange({ authorImage: e.target.value })} />
-      </Field>
-      <ColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
+      <Section title="Quote">
+        <DField label="Quote Text">
+          <DTextarea value={props.quote} rows={4} onChange={(v) => onChange({ quote: v })} />
+        </DField>
+      </Section>
+      <Section title="Author">
+        <DField label="Author Name">
+          <DInput value={props.authorName} onChange={(v) => onChange({ authorName: v })} />
+        </DField>
+        <DField label="Author Role">
+          <DInput value={props.authorRole} placeholder="CEO, Company" onChange={(v) => onChange({ authorRole: v })} />
+        </DField>
+        <DField label="Author Image URL">
+          <DInput value={props.authorImage} placeholder="https://…" onChange={(v) => onChange({ authorImage: v })} />
+        </DField>
+        <DColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
+      </Section>
     </>
   );
 }
@@ -284,67 +398,82 @@ function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onCha
     onChange({ features: updated });
   }
 
-  function addFeature() {
-    onChange({ features: [...props.features, { icon: '✨', title: 'New Feature', description: 'Describe this feature.' }] });
-  }
-
-  function removeFeature(idx: number) {
-    onChange({ features: props.features.filter((_, i) => i !== idx) });
-  }
-
   return (
     <>
-      <Field label="Section Title">
-        <Input value={props.title} onChange={(e) => onChange({ title: e.target.value })} />
-      </Field>
-      <Field label="Features">
-        <div className="flex flex-col gap-3">
+      <Section title="Section">
+        <DField label="Section Title">
+          <DInput value={props.title} onChange={(v) => onChange({ title: v })} />
+        </DField>
+      </Section>
+      <Section title="Features">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {props.features.map((f, idx) => (
-            <div key={idx} className="rounded-lg border p-3 bg-slate-50 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500">Feature {idx + 1}</span>
+            <div
+              key={idx}
+              style={{
+                backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A',
+                borderRadius: 8, padding: 10,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Feature {idx + 1}
+                </span>
                 <button
                   type="button"
-                  onClick={() => removeFeature(idx)}
-                  className="text-slate-300 hover:text-red-500 transition-colors"
+                  onClick={() => onChange({ features: props.features.filter((_, i) => i !== idx) })}
+                  style={{ color: '#555' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 style={{ width: 12, height: 12 }} />
                 </button>
               </div>
-              <div className="flex gap-2">
-                <Input
+              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                <input
+                  type="text"
                   value={f.icon}
                   onChange={(e) => updateFeature(idx, { icon: e.target.value })}
-                  className="w-14 text-center text-lg"
+                  style={{ ...inputStyle, width: 48, textAlign: 'center', fontSize: 16 }}
                   maxLength={2}
                   placeholder="🌟"
                 />
-                <Input
+                <input
+                  type="text"
                   value={f.title}
                   onChange={(e) => updateFeature(idx, { title: e.target.value })}
                   placeholder="Feature title"
-                  className="flex-1"
+                  style={{ ...inputStyle }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
                 />
               </div>
-              <Input
+              <input
+                type="text"
                 value={f.description}
                 onChange={(e) => updateFeature(idx, { description: e.target.value })}
                 placeholder="Brief description…"
+                style={{ ...inputStyle, fontSize: 11 }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
               />
             </div>
           ))}
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            onClick={addFeature}
-            className="gap-1.5 text-xs"
+            onClick={() => onChange({ features: [...props.features, { icon: '✨', title: 'New Feature', description: 'Describe this feature.' }] })}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 11, color: '#FF6B35', padding: '6px 10px',
+              backgroundColor: '#FF6B3515', border: '1px solid #FF6B3530',
+              borderRadius: 6, cursor: 'pointer', width: '100%',
+            }}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus style={{ width: 12, height: 12 }} />
             Add Feature
-          </Button>
+          </button>
         </div>
-      </Field>
+      </Section>
     </>
   );
 }
@@ -352,20 +481,24 @@ function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onCha
 function CTABannerForm({ props, onChange }: { props: CTABannerProps; onChange: (p: Partial<CTABannerProps>) => void }) {
   return (
     <>
-      <Field label="Heading">
-        <Input value={props.heading} onChange={(e) => onChange({ heading: e.target.value })} />
-      </Field>
-      <Field label="Subtext">
-        <Textarea value={props.subtext} rows={2} onChange={(e) => onChange({ subtext: e.target.value })} />
-      </Field>
-      <Field label="Button Text">
-        <Input value={props.buttonText} onChange={(e) => onChange({ buttonText: e.target.value })} />
-      </Field>
-      <Field label="Button URL">
-        <Input value={props.buttonUrl} placeholder="https://…" onChange={(e) => onChange({ buttonUrl: e.target.value })} />
-      </Field>
-      <ColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
-      <ColorField label="Text Color" value={props.textColor} onChange={(v) => onChange({ textColor: v })} />
+      <Section title="Content">
+        <DField label="Heading">
+          <DInput value={props.heading} onChange={(v) => onChange({ heading: v })} />
+        </DField>
+        <DField label="Subtext">
+          <DTextarea value={props.subtext} rows={2} onChange={(v) => onChange({ subtext: v })} />
+        </DField>
+        <DField label="Button Text">
+          <DInput value={props.buttonText} onChange={(v) => onChange({ buttonText: v })} />
+        </DField>
+        <DField label="Button URL">
+          <DInput value={props.buttonUrl} placeholder="https://…" onChange={(v) => onChange({ buttonUrl: v })} />
+        </DField>
+      </Section>
+      <Section title="Colors">
+        <DColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
+        <DColorField label="Text Color" value={props.textColor} onChange={(v) => onChange({ textColor: v })} />
+      </Section>
     </>
   );
 }
@@ -375,13 +508,21 @@ function CTABannerForm({ props, onChange }: { props: CTABannerProps; onChange: (
 export function PropertyEditor({ component, onChange }: PropertyEditorProps) {
   if (!component) {
     return (
-      <aside className="w-72 shrink-0 border-l bg-slate-50 flex flex-col items-center justify-center gap-3 p-6 text-center">
-        <div className="w-12 h-12 rounded-full bg-white border-2 border-dashed border-slate-200 flex items-center justify-center">
-          <span className="text-xl">🎨</span>
+      <aside
+        className="shrink-0 flex flex-col items-center justify-center gap-3 p-6 text-center"
+        style={{ width: 280, backgroundColor: '#141414', borderLeft: '1px solid #2A2A2A' }}
+      >
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: '#1E1E1E', border: '2px dashed #2A2A2A' }}
+        >
+          <SlidersHorizontal className="h-5 w-5" style={{ color: '#444' }} />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-600">No block selected</p>
-          <p className="text-xs text-slate-400 mt-1">Click a block on the canvas to edit its properties.</p>
+          <p className="text-sm font-semibold text-white">No block selected</p>
+          <p className="text-xs mt-1" style={{ color: '#555' }}>
+            Click a block on the canvas to edit its properties.
+          </p>
         </div>
       </aside>
     );
@@ -390,12 +531,29 @@ export function PropertyEditor({ component, onChange }: PropertyEditorProps) {
   const typeLabel = component.type.replace(/([A-Z])/g, ' $1').trim();
 
   return (
-    <aside className="w-72 shrink-0 border-l bg-white overflow-y-auto">
-      <div className="px-4 py-3.5 border-b bg-slate-50">
-        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Properties</p>
-        <p className="text-sm font-semibold text-slate-800 mt-0.5">{typeLabel}</p>
+    <aside
+      className="shrink-0 overflow-y-auto flex flex-col"
+      style={{
+        width: 280,
+        backgroundColor: '#141414',
+        borderLeft: '1px solid #2A2A2A',
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#2A2A2A transparent',
+      }}
+    >
+      {/* Header */}
+      <div
+        className="px-4 py-3 shrink-0"
+        style={{ borderBottom: '1px solid #2A2A2A' }}
+      >
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#555' }}>
+          Properties
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginTop: 2 }}>{typeLabel}</p>
       </div>
-      <div className="flex flex-col gap-4 p-4">
+
+      {/* Form */}
+      <div className="flex-1 p-4">
         {component.type === ComponentType.Hero && (
           <HeroForm props={component.props as HeroSectionProps} onChange={onChange as (p: Partial<HeroSectionProps>) => void} />
         )}
