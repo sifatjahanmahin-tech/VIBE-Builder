@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { ChevronRight, SlidersHorizontal, Trash2, Plus } from 'lucide-react';
 import { ComponentType, VibeComponent, VibeComponentProps } from '@/types/vibebuilder';
 import type {
   HeroSectionProps,
@@ -10,23 +12,22 @@ import type {
   TextAlignment,
   FeatureItem,
 } from '@/types/vibebuilder';
-import { Trash2, Plus, SlidersHorizontal } from 'lucide-react';
 
 interface PropertyEditorProps {
   component: VibeComponent | null;
   onChange: (patch: Partial<VibeComponentProps>) => void;
 }
 
-// ---- Dark-themed field components ----
+// ── Design tokens ────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
-  backgroundColor: '#1A1A1A',
-  border: '1px solid #2A2A2A',
-  color: '#FFFFFF',
+  width: '100%',
+  backgroundColor: '#333',
+  border: '1px solid #444',
+  color: 'white',
   borderRadius: 6,
   padding: '7px 10px',
   fontSize: 12,
-  width: '100%',
   outline: 'none',
   transition: 'border-color 0.15s',
 };
@@ -35,22 +36,21 @@ const labelStyle: React.CSSProperties = {
   fontSize: 10,
   fontWeight: 700,
   letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#666666',
-  marginBottom: 6,
+  textTransform: 'uppercase' as const,
+  color: '#888',
   display: 'block',
+  marginBottom: 5,
 };
 
-function DField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={labelStyle}>{label}</label>
-      {children}
-    </div>
-  );
+// ── Shared field primitives ──────────────────────────────────────────────────
+
+function DLabel({ children }: { children: React.ReactNode }) {
+  return <label style={labelStyle}>{children}</label>;
 }
 
-function DInput({ value, onChange, placeholder, type = 'text' }: {
+function DInput({
+  value, onChange, placeholder, type = 'text',
+}: {
   value: string | number;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -64,24 +64,22 @@ function DInput({ value, onChange, placeholder, type = 'text' }: {
       placeholder={placeholder}
       style={inputStyle}
       onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
     />
   );
 }
 
 function DTextarea({ value, onChange, rows = 3 }: {
-  value: string;
-  onChange: (v: string) => void;
-  rows?: number;
+  value: string; onChange: (v: string) => void; rows?: number;
 }) {
   return (
     <textarea
       value={value}
-      onChange={(e) => onChange(e.target.value)}
       rows={rows}
+      onChange={(e) => onChange(e.target.value)}
       style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
       onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
     />
   );
 }
@@ -97,10 +95,10 @@ function DSelect({ value, onChange, options }: {
       onChange={(e) => onChange(e.target.value)}
       style={{ ...inputStyle, cursor: 'pointer' }}
       onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value} style={{ backgroundColor: '#1A1A1A' }}>
+        <option key={o.value} value={o.value} style={{ backgroundColor: '#222' }}>
           {o.label}
         </option>
       ))}
@@ -109,20 +107,19 @@ function DSelect({ value, onChange, options }: {
 }
 
 function DColorField({ label, value, onChange }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
+  label: string; value: string; onChange: (v: string) => void;
 }) {
   return (
-    <DField label={label}>
+    <div style={{ marginBottom: 12 }}>
+      <DLabel>{label}</DLabel>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           style={{
-            width: 36, height: 34, borderRadius: 6, border: '1px solid #2A2A2A',
-            cursor: 'pointer', padding: 2, backgroundColor: '#1A1A1A', flexShrink: 0,
+            width: 32, height: 32, padding: 2, cursor: 'pointer',
+            backgroundColor: '#333', border: '1px solid #444', borderRadius: 6, flexShrink: 0,
           }}
         />
         <input
@@ -131,29 +128,70 @@ function DColorField({ label, value, onChange }: {
           onChange={(e) => onChange(e.target.value)}
           style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
           onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
         />
       </div>
-    </DField>
+    </div>
   );
 }
 
-// ---- Section wrapper with collapsible header ----
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function DField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ borderBottom: '1px solid #222222', paddingBottom: 16, marginBottom: 4 }}>
-      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#555555', marginBottom: 12 }}>
-        {title}
-      </p>
+    <div style={{ marginBottom: 12 }}>
+      <DLabel>{label}</DLabel>
       {children}
     </div>
   );
 }
 
-// ---- Per-type forms ----
+// ── Collapsible Section ──────────────────────────────────────────────────────
 
-function HeroForm({ props, onChange }: { props: HeroSectionProps; onChange: (p: Partial<HeroSectionProps>) => void }) {
+function Section({ title, children, defaultOpen = true }: {
+  title: string; children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div style={{ marginBottom: 2 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((p) => !p)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 6,
+          padding: '8px 16px', backgroundColor: '#1A1A1A',
+          border: 'none', cursor: 'pointer', borderBottom: '1px solid #2A2A2A',
+        }}
+      >
+        <ChevronRight
+          style={{
+            width: 12, height: 12, color: '#666',
+            transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform 0.15s', flexShrink: 0,
+          }}
+        />
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+          textTransform: 'uppercase', color: '#888',
+        }}>
+          {title}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '12px 16px', backgroundColor: '#262626', borderBottom: '1px solid #2A2A2A' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Per-type forms ───────────────────────────────────────────────────────────
+
+function HeroForm({ props, onChange }: {
+  props: HeroSectionProps;
+  onChange: (p: Partial<HeroSectionProps>) => void;
+}) {
   return (
     <>
       <Section title="Content">
@@ -182,40 +220,32 @@ function HeroForm({ props, onChange }: { props: HeroSectionProps; onChange: (p: 
         <DColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
         <DField label="Gradient From (optional)">
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="color"
+            <input type="color"
               value={props.gradientFrom ?? props.bgColor}
               onChange={(e) => onChange({ gradientFrom: e.target.value })}
-              style={{ width: 36, height: 34, borderRadius: 6, border: '1px solid #2A2A2A', cursor: 'pointer', padding: 2, backgroundColor: '#1A1A1A', flexShrink: 0 }}
-            />
-            <input
-              type="text"
+              style={{ width: 32, height: 32, padding: 2, cursor: 'pointer', backgroundColor: '#333', border: '1px solid #444', borderRadius: 6, flexShrink: 0 }} />
+            <input type="text"
               value={props.gradientFrom ?? ''}
-              placeholder="Leave empty for solid"
+              placeholder="empty = solid color"
               onChange={(e) => onChange({ gradientFrom: e.target.value || undefined })}
               style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
               onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
-            />
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }} />
           </div>
         </DField>
         <DField label="Gradient To (optional)">
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="color"
+            <input type="color"
               value={props.gradientTo ?? props.bgColor}
               onChange={(e) => onChange({ gradientTo: e.target.value })}
-              style={{ width: 36, height: 34, borderRadius: 6, border: '1px solid #2A2A2A', cursor: 'pointer', padding: 2, backgroundColor: '#1A1A1A', flexShrink: 0 }}
-            />
-            <input
-              type="text"
+              style={{ width: 32, height: 32, padding: 2, cursor: 'pointer', backgroundColor: '#333', border: '1px solid #444', borderRadius: 6, flexShrink: 0 }} />
+            <input type="text"
               value={props.gradientTo ?? ''}
-              placeholder="Leave empty for solid"
+              placeholder="empty = solid color"
               onChange={(e) => onChange({ gradientTo: e.target.value || undefined })}
               style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
               onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
-            />
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }} />
           </div>
         </DField>
         <DField label="Background Image URL">
@@ -225,13 +255,12 @@ function HeroForm({ props, onChange }: { props: HeroSectionProps; onChange: (p: 
           <DField label="Image Overlay Opacity">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input
-                type="range"
-                min={0} max={1} step={0.05}
+                type="range" min={0} max={1} step={0.05}
                 value={props.overlayOpacity ?? 0.3}
                 onChange={(e) => onChange({ overlayOpacity: Number(e.target.value) })}
                 style={{ flex: 1, accentColor: '#FF6B35' }}
               />
-              <span style={{ fontSize: 11, color: '#888', width: 30, textAlign: 'right' }}>
+              <span style={{ fontSize: 11, color: '#888', width: 32, textAlign: 'right' }}>
                 {Math.round((props.overlayOpacity ?? 0.3) * 100)}%
               </span>
             </div>
@@ -242,7 +271,9 @@ function HeroForm({ props, onChange }: { props: HeroSectionProps; onChange: (p: 
   );
 }
 
-function TextBlockForm({ props, onChange }: { props: TextBlockProps; onChange: (p: Partial<TextBlockProps>) => void }) {
+function TextBlockForm({ props, onChange }: {
+  props: TextBlockProps; onChange: (p: Partial<TextBlockProps>) => void;
+}) {
   return (
     <>
       <Section title="Content">
@@ -276,13 +307,9 @@ function TextBlockForm({ props, onChange }: { props: TextBlockProps; onChange: (
   );
 }
 
-function ImageGalleryForm({ props, onChange }: { props: ImageGalleryProps; onChange: (p: Partial<ImageGalleryProps>) => void }) {
-  function handleImageChange(idx: number, value: string) {
-    const updated = [...props.images];
-    updated[idx] = value;
-    onChange({ images: updated });
-  }
-
+function ImageGalleryForm({ props, onChange }: {
+  props: ImageGalleryProps; onChange: (p: Partial<ImageGalleryProps>) => void;
+}) {
   return (
     <>
       <Section title="Images">
@@ -290,18 +317,20 @@ function ImageGalleryForm({ props, onChange }: { props: ImageGalleryProps; onCha
           {props.images.map((url, idx) => (
             <div key={idx} style={{ display: 'flex', gap: 6 }}>
               <input
-                type="text"
-                value={url}
-                placeholder="https://…"
-                onChange={(e) => handleImageChange(idx, e.target.value)}
+                type="text" value={url} placeholder="https://…"
+                onChange={(e) => {
+                  const updated = [...props.images];
+                  updated[idx] = e.target.value;
+                  onChange({ images: updated });
+                }}
                 style={{ ...inputStyle, fontSize: 11 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
               />
               <button
                 type="button"
                 onClick={() => onChange({ images: props.images.filter((_, i) => i !== idx) })}
-                style={{ color: '#555', padding: '0 6px', flexShrink: 0 }}
+                style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', flexShrink: 0 }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
               >
@@ -312,13 +341,13 @@ function ImageGalleryForm({ props, onChange }: { props: ImageGalleryProps; onCha
           <button
             type="button"
             onClick={() => onChange({ images: [...props.images, ''] })}
-            style={{ fontSize: 11, color: '#FF6B35', textAlign: 'left', marginTop: 2 }}
+            style={{ fontSize: 11, color: '#FF6B35', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
           >
             + Add image URL
           </button>
         </div>
       </Section>
-      <Section title="Layout">
+      <Section title="Layout" defaultOpen={false}>
         <DField label="Columns">
           <DSelect
             value={String(props.columns)}
@@ -334,41 +363,42 @@ function ImageGalleryForm({ props, onChange }: { props: ImageGalleryProps; onCha
   );
 }
 
-function ContactFormForm({ props, onChange }: { props: ContactFormProps; onChange: (p: Partial<ContactFormProps>) => void }) {
+function ContactFormForm({ props, onChange }: {
+  props: ContactFormProps; onChange: (p: Partial<ContactFormProps>) => void;
+}) {
   return (
-    <>
-      <Section title="Form">
-        <DField label="Form Title">
-          <DInput value={props.title} onChange={(v) => onChange({ title: v })} />
-        </DField>
-        <DField label="Submit Button Text">
-          <DInput value={props.submitText} onChange={(v) => onChange({ submitText: v })} />
-        </DField>
-        <DField label="Fields">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {props.fields.map((f, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A',
-                  borderRadius: 6, padding: '6px 10px',
-                }}
-              >
-                <span style={{ fontSize: 12, color: '#fff', flex: 1 }}>{f.label}</span>
-                <span style={{ fontSize: 10, color: '#666' }}>{f.type}</span>
-                {f.required && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>*</span>}
-              </div>
-            ))}
-          </div>
-          <p style={{ fontSize: 10, color: '#555', marginTop: 6 }}>Field editing coming soon.</p>
-        </DField>
-      </Section>
-    </>
+    <Section title="Form">
+      <DField label="Form Title">
+        <DInput value={props.title} onChange={(v) => onChange({ title: v })} />
+      </DField>
+      <DField label="Submit Button Text">
+        <DInput value={props.submitText} onChange={(v) => onChange({ submitText: v })} />
+      </DField>
+      <DField label="Fields">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {props.fields.map((f, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                backgroundColor: '#333', border: '1px solid #444',
+                borderRadius: 6, padding: '6px 10px',
+              }}
+            >
+              <span style={{ fontSize: 12, color: '#fff', flex: 1 }}>{f.label}</span>
+              <span style={{ fontSize: 10, color: '#666' }}>{f.type}</span>
+              {f.required && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>*</span>}
+            </div>
+          ))}
+        </div>
+      </DField>
+    </Section>
   );
 }
 
-function TestimonialForm({ props, onChange }: { props: TestimonialProps; onChange: (p: Partial<TestimonialProps>) => void }) {
+function TestimonialForm({ props, onChange }: {
+  props: TestimonialProps; onChange: (p: Partial<TestimonialProps>) => void;
+}) {
   return (
     <>
       <Section title="Quote">
@@ -392,10 +422,11 @@ function TestimonialForm({ props, onChange }: { props: TestimonialProps; onChang
   );
 }
 
-function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onChange: (p: Partial<FeaturesGridProps>) => void }) {
+function FeaturesGridForm({ props, onChange }: {
+  props: FeaturesGridProps; onChange: (p: Partial<FeaturesGridProps>) => void;
+}) {
   function updateFeature(idx: number, patch: Partial<FeatureItem>) {
-    const updated = props.features.map((f, i) => (i === idx ? { ...f, ...patch } : f));
-    onChange({ features: updated });
+    onChange({ features: props.features.map((f, i) => (i === idx ? { ...f, ...patch } : f)) });
   }
 
   return (
@@ -410,19 +441,16 @@ function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onCha
           {props.features.map((f, idx) => (
             <div
               key={idx}
-              style={{
-                backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A',
-                borderRadius: 8, padding: 10,
-              }}
+              style={{ backgroundColor: '#333', border: '1px solid #3A3A3A', borderRadius: 8, padding: 10 }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Feature {idx + 1}
                 </span>
                 <button
                   type="button"
                   onClick={() => onChange({ features: props.features.filter((_, i) => i !== idx) })}
-                  style={{ color: '#555' }}
+                  style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer' }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
                 >
@@ -431,31 +459,24 @@ function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onCha
               </div>
               <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                 <input
-                  type="text"
-                  value={f.icon}
+                  type="text" value={f.icon} maxLength={2}
                   onChange={(e) => updateFeature(idx, { icon: e.target.value })}
-                  style={{ ...inputStyle, width: 48, textAlign: 'center', fontSize: 16 }}
-                  maxLength={2}
-                  placeholder="🌟"
+                  style={{ ...inputStyle, width: 44, textAlign: 'center', fontSize: 16 }}
                 />
                 <input
-                  type="text"
-                  value={f.title}
+                  type="text" value={f.title} placeholder="Feature title"
                   onChange={(e) => updateFeature(idx, { title: e.target.value })}
-                  placeholder="Feature title"
-                  style={{ ...inputStyle }}
+                  style={inputStyle}
                   onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
                 />
               </div>
               <input
-                type="text"
-                value={f.description}
+                type="text" value={f.description} placeholder="Brief description…"
                 onChange={(e) => updateFeature(idx, { description: e.target.value })}
-                placeholder="Brief description…"
                 style={{ ...inputStyle, fontSize: 11 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
               />
             </div>
           ))}
@@ -463,10 +484,10 @@ function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onCha
             type="button"
             onClick={() => onChange({ features: [...props.features, { icon: '✨', title: 'New Feature', description: 'Describe this feature.' }] })}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 11, color: '#FF6B35', padding: '6px 10px',
-              backgroundColor: '#FF6B3515', border: '1px solid #FF6B3530',
-              borderRadius: 6, cursor: 'pointer', width: '100%',
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+              padding: '7px 10px', backgroundColor: '#FF6B3515',
+              border: '1px solid #FF6B3530', borderRadius: 6,
+              fontSize: 11, color: '#FF6B35', cursor: 'pointer', fontWeight: 600,
             }}
           >
             <Plus style={{ width: 12, height: 12 }} />
@@ -478,7 +499,9 @@ function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onCha
   );
 }
 
-function CTABannerForm({ props, onChange }: { props: CTABannerProps; onChange: (p: Partial<CTABannerProps>) => void }) {
+function CTABannerForm({ props, onChange }: {
+  props: CTABannerProps; onChange: (p: Partial<CTABannerProps>) => void;
+}) {
   return (
     <>
       <Section title="Content">
@@ -495,7 +518,7 @@ function CTABannerForm({ props, onChange }: { props: CTABannerProps; onChange: (
           <DInput value={props.buttonUrl} placeholder="https://…" onChange={(v) => onChange({ buttonUrl: v })} />
         </DField>
       </Section>
-      <Section title="Colors">
+      <Section title="Colors" defaultOpen={false}>
         <DColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
         <DColorField label="Text Color" value={props.textColor} onChange={(v) => onChange({ textColor: v })} />
       </Section>
@@ -503,24 +526,30 @@ function CTABannerForm({ props, onChange }: { props: CTABannerProps; onChange: (
   );
 }
 
-// ---- Main panel ----
+// ── Main panel ───────────────────────────────────────────────────────────────
 
 export function PropertyEditor({ component, onChange }: PropertyEditorProps) {
+  const typeLabel = component?.type.replace(/([A-Z])/g, ' $1').trim() ?? '';
+
   if (!component) {
     return (
       <aside
         className="shrink-0 flex flex-col items-center justify-center gap-3 p-6 text-center"
-        style={{ width: 280, backgroundColor: '#141414', borderLeft: '1px solid #2A2A2A' }}
+        style={{ width: 280, backgroundColor: '#262626', borderLeft: '1px solid #2A2A2A' }}
       >
         <div
-          className="w-12 h-12 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: '#1E1E1E', border: '2px dashed #2A2A2A' }}
+          style={{
+            width: 48, height: 48, borderRadius: '50%',
+            backgroundColor: '#333',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px dashed #3A3A3A',
+          }}
         >
-          <SlidersHorizontal className="h-5 w-5" style={{ color: '#444' }} />
+          <SlidersHorizontal style={{ width: 20, height: 20, color: '#555' }} />
         </div>
         <div>
-          <p className="text-sm font-semibold text-white">No block selected</p>
-          <p className="text-xs mt-1" style={{ color: '#555' }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>No block selected</p>
+          <p style={{ fontSize: 11, color: '#555', marginTop: 4, lineHeight: 1.4 }}>
             Click a block on the canvas to edit its properties.
           </p>
         </div>
@@ -528,32 +557,36 @@ export function PropertyEditor({ component, onChange }: PropertyEditorProps) {
     );
   }
 
-  const typeLabel = component.type.replace(/([A-Z])/g, ' $1').trim();
-
   return (
     <aside
-      className="shrink-0 overflow-y-auto flex flex-col"
+      className="shrink-0 flex flex-col overflow-hidden"
       style={{
-        width: 280,
-        backgroundColor: '#141414',
+        width: 280, backgroundColor: '#262626',
         borderLeft: '1px solid #2A2A2A',
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#2A2A2A transparent',
+        overflowY: 'auto',
+        scrollbarWidth: 'thin', scrollbarColor: '#333 transparent',
       }}
     >
       {/* Header */}
       <div
-        className="px-4 py-3 shrink-0"
-        style={{ borderBottom: '1px solid #2A2A2A' }}
+        style={{
+          padding: '10px 16px', backgroundColor: '#1A1A1A',
+          borderBottom: '1px solid #2A2A2A', flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}
       >
-        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#555' }}>
-          Properties
-        </p>
-        <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginTop: 2 }}>{typeLabel}</p>
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#555' }}>
+            Properties
+          </p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'white', marginTop: 1 }}>
+            {typeLabel}
+          </p>
+        </div>
       </div>
 
-      {/* Form */}
-      <div className="flex-1 p-4">
+      {/* Form sections */}
+      <div className="flex-1" style={{ overflowY: 'auto' }}>
         {component.type === ComponentType.Hero && (
           <HeroForm props={component.props as HeroSectionProps} onChange={onChange as (p: Partial<HeroSectionProps>) => void} />
         )}

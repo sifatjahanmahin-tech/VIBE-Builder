@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { LayoutTemplate, Type, Images, Mail, Quote, Zap, Megaphone, Search } from 'lucide-react';
+import {
+  Layers, FileText, Settings2, Search,
+  LayoutTemplate, Type, Images, Mail, Quote, Zap, Megaphone,
+} from 'lucide-react';
 import { ComponentType, COMPONENT_DEFINITIONS } from '@/types/vibebuilder';
 
-const ICONS: Record<ComponentType, React.ReactNode> = {
+// White line icons (24px) per component type
+const COMP_ICONS: Record<ComponentType, React.ReactNode> = {
   [ComponentType.Hero]:         <LayoutTemplate className="h-5 w-5" />,
   [ComponentType.TextBlock]:    <Type className="h-5 w-5" />,
   [ComponentType.ImageGallery]: <Images className="h-5 w-5" />,
@@ -13,118 +17,191 @@ const ICONS: Record<ComponentType, React.ReactNode> = {
 };
 
 const CATEGORIES: { label: string; types: ComponentType[] }[] = [
-  { label: 'Layout',      types: [ComponentType.Hero, ComponentType.CTABanner] },
-  { label: 'Content',     types: [ComponentType.TextBlock, ComponentType.Testimonial, ComponentType.FeaturesGrid] },
-  { label: 'Media',       types: [ComponentType.ImageGallery] },
-  { label: 'Interactive', types: [ComponentType.ContactForm] },
+  { label: 'LAYOUT',      types: [ComponentType.Hero, ComponentType.CTABanner] },
+  { label: 'CONTENT',     types: [ComponentType.TextBlock, ComponentType.Testimonial, ComponentType.FeaturesGrid] },
+  { label: 'MEDIA',       types: [ComponentType.ImageGallery] },
+  { label: 'INTERACTIVE', types: [ComponentType.ContactForm] },
 ];
+
+type PanelTab = 'elements' | 'pages' | 'settings';
 
 interface ComponentPaletteProps {
   onAdd: (type: ComponentType) => void;
 }
 
 export function ComponentPalette({ onAdd }: ComponentPaletteProps) {
+  const [activeTab, setActiveTab] = useState<PanelTab>('elements');
   const [query, setQuery] = useState('');
 
-  const allDefs = COMPONENT_DEFINITIONS.filter((d) =>
-    !query || d.label.toLowerCase().includes(query.toLowerCase()) || d.description.toLowerCase().includes(query.toLowerCase())
-  );
-
-  const filteredCategories = query
-    ? [{ label: 'Results', types: allDefs.map((d) => d.type) }]
-    : CATEGORIES;
+  const STRIP_ICONS: { id: PanelTab; icon: React.ReactNode; label: string }[] = [
+    { id: 'elements', icon: <Layers className="h-[18px] w-[18px]" />, label: 'Elements' },
+    { id: 'pages',    icon: <FileText className="h-[18px] w-[18px]" />, label: 'Pages' },
+  ];
 
   return (
-    <aside
-      className="shrink-0 flex flex-col overflow-hidden"
-      style={{ width: 280, backgroundColor: '#141414', borderRight: '1px solid #2A2A2A' }}
-    >
-      {/* Header */}
-      <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid #2A2A2A' }}>
-        <p className="text-[10px] font-bold tracking-widest uppercase mb-3" style={{ color: '#888888' }}>
-          Blocks
-        </p>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#555' }} />
-          <input
-            type="search"
-            placeholder="Search blocks…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg outline-none transition-colors"
+    <div className="flex shrink-0 h-full" style={{ borderRight: '1px solid #2A2A2A' }}>
+
+      {/* ── Icon strip (48px) ── */}
+      <div
+        className="flex flex-col items-center pt-2 pb-2 shrink-0"
+        style={{ width: 48, backgroundColor: '#1A1A1A', borderRight: '1px solid #2A2A2A' }}
+      >
+        {STRIP_ICONS.map(({ id, icon, label }) => (
+          <button
+            key={id}
+            type="button"
+            title={label}
+            onClick={() => setActiveTab(id)}
             style={{
-              backgroundColor: '#1A1A1A',
-              border: '1px solid #2A2A2A',
-              color: '#FFFFFF',
+              width: 36, height: 36, borderRadius: 8, marginBottom: 4,
+              backgroundColor: activeTab === id ? '#FF6B35' : 'transparent',
+              color: activeTab === id ? 'white' : '#666',
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.15s',
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
-          />
+            onMouseEnter={(e) => { if (activeTab !== id) e.currentTarget.style.color = '#CCC'; }}
+            onMouseLeave={(e) => { if (activeTab !== id) e.currentTarget.style.color = '#666'; }}
+          >
+            {icon}
+          </button>
+        ))}
+
+        {/* Settings pinned to bottom */}
+        <div style={{ marginTop: 'auto' }}>
+          <button
+            type="button"
+            title="Settings"
+            style={{
+              width: 36, height: 36, borderRadius: 8,
+              backgroundColor: 'transparent', color: '#555',
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#CCC'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
+          >
+            <Settings2 className="h-[18px] w-[18px]" />
+          </button>
         </div>
       </div>
 
-      {/* Blocks list */}
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: '#2A2A2A transparent' }}
-      >
-        {filteredCategories.map((cat) => {
-          const defs = COMPONENT_DEFINITIONS.filter((d) => cat.types.includes(d.type));
-          if (!defs.length) return null;
-          return (
-            <div key={cat.label}>
-              <p
-                className="text-[10px] font-bold tracking-widest uppercase px-1 mb-2"
-                style={{ color: '#555555' }}
-              >
-                {cat.label}
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {defs.map((def) => (
-                  <button
-                    key={def.type}
-                    type="button"
-                    onClick={() => onAdd(def.type)}
-                    className="flex flex-col items-center gap-2 rounded-lg p-3 text-center transition-all duration-150 group select-none"
-                    style={{ backgroundColor: '#1E1E1E', border: '1px solid #2A2A2A' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#FF6B35';
-                      e.currentTarget.style.backgroundColor = '#252525';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#2A2A2A';
-                      e.currentTarget.style.backgroundColor = '#1E1E1E';
-                    }}
-                    title={def.description}
-                  >
-                    <span style={{ color: '#888888' }} className="group-hover:text-[#FF6B35] transition-colors">
-                      {ICONS[def.type]}
-                    </span>
-                    <span className="text-[11px] font-medium leading-tight text-white">
-                      {def.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-
-        {filteredCategories.every((cat) =>
-          !COMPONENT_DEFINITIONS.filter((d) => cat.types.includes(d.type)).length
-        ) && (
-          <p className="text-xs text-center py-8" style={{ color: '#555' }}>
-            No blocks match &ldquo;{query}&rdquo;
-          </p>
-        )}
-      </div>
-
-      {/* Footer hint */}
+      {/* ── Elements panel (280px) ── */}
       <div
-        className="px-4 py-2.5 text-center shrink-0"
-        style={{ borderTop: '1px solid #2A2A2A' }}
+        className="flex flex-col overflow-hidden"
+        style={{ width: 280, backgroundColor: '#262626' }}
       >
-        <p className="text-[10px]" style={{ color: '#444' }}>Click to add block to canvas</p>
+        {/* Header */}
+        <div style={{ padding: '12px 12px 0', borderBottom: '1px solid #333', flexShrink: 0 }}>
+          <p style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+            textTransform: 'uppercase', color: '#888', marginBottom: 10,
+          }}>
+            {activeTab === 'elements' ? 'Elements' : activeTab === 'pages' ? 'Pages' : 'Settings'}
+          </p>
+
+          {activeTab === 'elements' && (
+            <div style={{ position: 'relative', marginBottom: 12 }}>
+              <Search style={{
+                position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                width: 13, height: 13, color: '#666', pointerEvents: 'none',
+              }} />
+              <input
+                type="search"
+                placeholder="Search elements"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{
+                  width: '100%', paddingLeft: 28, paddingRight: 8, paddingTop: 7, paddingBottom: 7,
+                  backgroundColor: '#333', border: '1px solid #3A3A3A', borderRadius: 6,
+                  color: 'white', fontSize: 12, outline: 'none',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#3A3A3A'; }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{ padding: 12, scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}
+        >
+          {activeTab === 'elements' && (
+            <>
+              {CATEGORIES.map((cat) => {
+                const defs = COMPONENT_DEFINITIONS.filter(
+                  (d) => cat.types.includes(d.type) &&
+                    (!query || d.label.toLowerCase().includes(query.toLowerCase()) ||
+                     d.description.toLowerCase().includes(query.toLowerCase()))
+                );
+                if (!defs.length) return null;
+                return (
+                  <div key={cat.label} style={{ marginBottom: 16 }}>
+                    <p style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+                      textTransform: 'uppercase', color: '#555', marginBottom: 8, padding: '0 2px',
+                    }}>
+                      {cat.label}
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                      {defs.map((def) => (
+                        <button
+                          key={def.type}
+                          type="button"
+                          onClick={() => onAdd(def.type)}
+                          title={def.description}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            justifyContent: 'center', gap: 6, padding: '10px 6px',
+                            backgroundColor: '#333', border: '1px solid #3A3A3A',
+                            borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
+                            minHeight: 76,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#3A3A3A';
+                            e.currentTarget.style.borderColor = '#FF6B35';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#333';
+                            e.currentTarget.style.borderColor = '#3A3A3A';
+                          }}
+                        >
+                          <span style={{ color: '#CCC', display: 'flex' }}>
+                            {COMP_ICONS[def.type]}
+                          </span>
+                          <span style={{
+                            fontSize: 10, color: '#CCC', textAlign: 'center',
+                            lineHeight: 1.3, fontWeight: 500,
+                          }}>
+                            {def.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {CATEGORIES.every((cat) =>
+                !COMPONENT_DEFINITIONS.filter((d) => cat.types.includes(d.type) &&
+                  (!query || d.label.toLowerCase().includes(query.toLowerCase()))).length
+              ) && (
+                <p style={{ fontSize: 12, color: '#555', textAlign: 'center', paddingTop: 32 }}>
+                  No elements match your search.
+                </p>
+              )}
+            </>
+          )}
+
+          {activeTab === 'pages' && (
+            <p style={{ fontSize: 12, color: '#555', textAlign: 'center', paddingTop: 32 }}>
+              Page management coming soon.
+            </p>
+          )}
+        </div>
       </div>
-    </aside>
+    </div>
   );
 }

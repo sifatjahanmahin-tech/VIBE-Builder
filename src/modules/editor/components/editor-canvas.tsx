@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ComponentType, VibeComponent } from '@/types/vibebuilder';
 import type {
   HeroSectionProps,
@@ -33,80 +33,53 @@ import { Testimonial } from '@/components/vibe/testimonial';
 import { FeaturesGrid } from '@/components/vibe/features-grid';
 import { CTABanner } from '@/components/vibe/cta-banner';
 
-function renderVibeComponent(c: VibeComponent) {
+// ── Component renderer ──────────────────────────────────────────────────────
+
+function renderVibeComponent(c: VibeComponent): React.ReactNode {
   switch (c.type) {
     case ComponentType.Hero:
-      return <HeroSection key={c.id} {...(c.props as HeroSectionProps)} />;
+      return <HeroSection {...(c.props as HeroSectionProps)} />;
     case ComponentType.TextBlock:
-      return <TextBlock key={c.id} {...(c.props as TextBlockProps)} />;
+      return <TextBlock {...(c.props as TextBlockProps)} />;
     case ComponentType.ImageGallery:
-      return <ImageGallery key={c.id} {...(c.props as ImageGalleryProps)} />;
+      return <ImageGallery {...(c.props as ImageGalleryProps)} />;
     case ComponentType.ContactForm:
-      return <ContactForm key={c.id} {...(c.props as ContactFormProps)} />;
+      return <ContactForm {...(c.props as ContactFormProps)} />;
     case ComponentType.Testimonial:
-      return <Testimonial key={c.id} {...(c.props as TestimonialProps)} />;
+      return <Testimonial {...(c.props as TestimonialProps)} />;
     case ComponentType.FeaturesGrid:
-      return <FeaturesGrid key={c.id} {...(c.props as FeaturesGridProps)} />;
+      return <FeaturesGrid {...(c.props as FeaturesGridProps)} />;
     case ComponentType.CTABanner:
-      return <CTABanner key={c.id} {...(c.props as CTABannerProps)} />;
+      return <CTABanner {...(c.props as CTABannerProps)} />;
     default:
       return null;
   }
 }
 
 const TYPE_LABELS: Record<ComponentType, string> = {
-  [ComponentType.Hero]: 'Hero',
-  [ComponentType.TextBlock]: 'Text',
-  [ComponentType.ImageGallery]: 'Gallery',
-  [ComponentType.ContactForm]: 'Form',
-  [ComponentType.Testimonial]: 'Quote',
-  [ComponentType.FeaturesGrid]: 'Features',
-  [ComponentType.CTABanner]: 'CTA',
+  [ComponentType.Hero]:         'Hero Section',
+  [ComponentType.TextBlock]:    'Text Block',
+  [ComponentType.ImageGallery]: 'Image Gallery',
+  [ComponentType.ContactForm]:  'Contact Form',
+  [ComponentType.Testimonial]:  'Testimonial',
+  [ComponentType.FeaturesGrid]: 'Features Grid',
+  [ComponentType.CTABanner]:    'CTA Banner',
 };
 
-const TYPE_ACCENT: Record<ComponentType, string> = {
-  [ComponentType.Hero]:         '#6366f1',
-  [ComponentType.TextBlock]:    '#8b5cf6',
-  [ComponentType.ImageGallery]: '#f59e0b',
-  [ComponentType.ContactForm]:  '#10b981',
-  [ComponentType.Testimonial]:  '#ec4899',
-  [ComponentType.FeaturesGrid]: '#06b6d4',
-  [ComponentType.CTABanner]:    '#FF6B35',
-};
+// ── Sortable component wrapper ──────────────────────────────────────────────
 
-function getPreviewText(c: VibeComponent): string {
-  const p = (c.props as unknown) as Record<string, unknown>;
-  switch (c.type) {
-    case ComponentType.Hero: return String(p.heading ?? '');
-    case ComponentType.TextBlock: {
-      const content = String(p.content ?? '');
-      return content.length > 60 ? content.slice(0, 60) + '…' : content;
-    }
-    case ComponentType.ImageGallery: {
-      const imgs = (p.images as string[]) ?? [];
-      return `${imgs.length} image${imgs.length !== 1 ? 's' : ''}`;
-    }
-    case ComponentType.ContactForm:  return String(p.title ?? '');
-    case ComponentType.Testimonial:  return String(p.authorName ?? '');
-    case ComponentType.FeaturesGrid: return String(p.title ?? '');
-    case ComponentType.CTABanner:    return String(p.heading ?? '');
-    default: return '';
-  }
-}
-
-interface SortableItemProps {
+interface SortableComponentProps {
   component: VibeComponent;
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
 }
 
-function SortableItem({ component, isSelected, onSelect, onRemove }: SortableItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: component.id,
-  });
-
-  const accent = TYPE_ACCENT[component.type];
+function SortableComponent({ component, isSelected, onSelect, onRemove }: SortableComponentProps) {
+  const {
+    attributes, listeners, setNodeRef,
+    transform, transition, isDragging,
+  } = useSortable({ id: component.id });
 
   return (
     <div
@@ -114,58 +87,103 @@ function SortableItem({ component, isSelected, onSelect, onRemove }: SortableIte
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
+        position: 'relative',
         opacity: isDragging ? 0.4 : 1,
-        backgroundColor: isSelected ? '#1E1E1E' : '#181818',
-        border: `1px solid ${isSelected ? accent : '#2A2A2A'}`,
-        borderLeft: `3px solid ${accent}`,
-        boxShadow: isSelected ? `0 0 0 1px ${accent}33` : 'none',
+        zIndex: isDragging ? 10 : 'auto',
       }}
+      className="group"
       onClick={onSelect}
-      className="flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-all duration-150 group"
     >
-      {/* Drag handle */}
+      {/* Orange label chip — shown when selected, positioned at top of component */}
+      {isSelected && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            backgroundColor: '#FF6B35',
+            color: 'white',
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '3px 8px',
+            borderRadius: '0 0 6px 0',
+            zIndex: 30,
+            pointerEvents: 'none',
+            letterSpacing: '0.03em',
+          }}
+        >
+          {TYPE_LABELS[component.type]}
+        </div>
+      )}
+
+      {/* Orange selection outline */}
+      {isSelected && (
+        <div
+          style={{
+            position: 'absolute', inset: 0,
+            outline: '2px solid #FF6B35',
+            outlineOffset: -2,
+            zIndex: 20, pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {/* Hover outline (dimmer) */}
+      {!isSelected && (
+        <div
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{
+            position: 'absolute', inset: 0,
+            outline: '1px solid rgba(255,107,53,0.35)',
+            outlineOffset: -1,
+            zIndex: 20, pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {/* Drag handle — top-left on hover */}
       <button
         {...attributes}
         {...listeners}
         type="button"
-        className="cursor-grab active:cursor-grabbing p-0.5 shrink-0 transition-colors"
-        style={{ color: '#444' }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = '#888'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = '#444'; }}
         onClick={(e) => e.stopPropagation()}
-        aria-label="Drag to reorder"
+        className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+        title="Drag to reorder"
+        style={{
+          position: 'absolute', top: 8, left: 8, zIndex: 25,
+          backgroundColor: 'rgba(0,0,0,0.55)',
+          color: '#ddd', border: 'none', borderRadius: 4,
+          padding: '3px 5px', fontSize: 14, lineHeight: 1,
+        }}
       >
-        <GripVertical className="h-4 w-4" />
+        ⠿
       </button>
 
-      {/* Type badge */}
-      <span
-        className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0"
-        style={{ backgroundColor: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
-      >
-        {TYPE_LABELS[component.type]}
-      </span>
-
-      {/* Preview text */}
-      <span className="text-sm truncate flex-1" style={{ color: '#888888' }}>
-        {getPreviewText(component)}
-      </span>
-
-      {/* Delete */}
+      {/* Delete button — top-right on hover */}
       <button
         type="button"
-        className="h-6 w-6 shrink-0 flex items-center justify-center rounded transition-all opacity-0 group-hover:opacity-100"
-        style={{ color: '#555' }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = '#ef444415'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; e.currentTarget.style.backgroundColor = 'transparent'; }}
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
         title="Remove block"
+        style={{
+          position: 'absolute', top: 8, right: 8, zIndex: 25,
+          backgroundColor: 'rgba(239,68,68,0.85)',
+          color: 'white', border: 'none', borderRadius: 4,
+          padding: '3px 7px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+        }}
       >
-        <Trash2 className="h-3.5 w-3.5" />
+        ✕
       </button>
+
+      {/* Actual rendered component — pointer-events disabled so clicks reach wrapper */}
+      <div style={{ pointerEvents: 'none' }}>
+        {renderVibeComponent(component)}
+      </div>
     </div>
   );
 }
+
+// ── Canvas ──────────────────────────────────────────────────────────────────
 
 interface EditorCanvasProps {
   components: VibeComponent[];
@@ -185,7 +203,7 @@ export function EditorCanvas({
   onReorder,
 }: EditorCanvasProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -196,65 +214,85 @@ export function EditorCanvas({
     }
   }
 
-  // Preview mode: render actual components
+  const sorted = [...components].sort((a, b) => a.order - b.order);
+
+  // Preview mode: clean white full-width render
   if (previewMode) {
     return (
       <div className="flex-1 overflow-y-auto bg-white">
-        {components.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+        {sorted.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
             <p className="text-slate-400 text-sm">No blocks added yet</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {[...components].sort((a, b) => a.order - b.order).map(renderVibeComponent)}
-          </div>
+          sorted.map((c) => (
+            <div key={c.id}>{renderVibeComponent(c)}</div>
+          ))
         )}
       </div>
     );
   }
 
-  // Edit mode
+  // Edit mode: dark bg + rounded canvas container with live components
   return (
     <div
-      className="flex-1 overflow-y-auto p-6"
+      className="flex-1 overflow-y-auto"
       style={{
-        backgroundColor: '#1E1E1E',
+        backgroundColor: '#1A1A1A',
         scrollbarWidth: 'thin',
-        scrollbarColor: '#2A2A2A transparent',
+        scrollbarColor: '#333 transparent',
+      }}
+      onClick={(e) => {
+        // Click on dark outer area deselects
+        if (e.target === e.currentTarget) onSelect('');
       }}
     >
-      <div className="max-w-2xl mx-auto">
-        {components.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center min-h-[320px] rounded-xl text-center gap-4 p-8"
-            style={{ border: '2px dashed #2A2A2A' }}
-          >
+      <div style={{ padding: '40px 48px 80px' }}>
+        {/* Browser-frame canvas container */}
+        <div
+          style={{
+            maxWidth: 1100,
+            margin: '0 auto',
+            borderRadius: 12,
+            overflow: 'hidden',
+            boxShadow: '0 0 0 1px #333333, 0 24px 64px rgba(0,0,0,0.55)',
+            backgroundColor: 'white',
+            minHeight: components.length === 0 ? 480 : undefined,
+          }}
+        >
+          {components.length === 0 ? (
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: '#252525' }}
+              className="flex flex-col items-center justify-center h-full gap-4"
+              style={{ minHeight: 480 }}
             >
-              <span className="text-2xl">🧱</span>
+              <div
+                style={{
+                  width: 56, height: 56, borderRadius: '50%',
+                  backgroundColor: '#f1f5f9',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Plus style={{ width: 24, height: 24, color: '#94a3b8' }} />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 15, fontWeight: 600, color: '#475569' }}>Canvas is empty</p>
+                <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+                  Add blocks from the left panel to get started.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-base font-semibold text-white">Canvas is empty</p>
-              <p className="text-sm mt-1" style={{ color: '#555' }}>
-                Pick a block from the left panel to get started.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={components.map((c) => c.id)}
-              strategy={verticalListSortingStrategy}
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <div className="flex flex-col gap-1.5">
-                {components.map((component) => (
-                  <SortableItem
+              <SortableContext
+                items={sorted.map((c) => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {sorted.map((component) => (
+                  <SortableComponent
                     key={component.id}
                     component={component}
                     isSelected={selectedId === component.id}
@@ -262,9 +300,18 @@ export function EditorCanvas({
                     onRemove={() => onRemove(component.id)}
                   />
                 ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+
+        {/* Add block hint below */}
+        {components.length > 0 && (
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <span style={{ fontSize: 11, color: '#444' }}>
+              Click a block in the left panel to add it below
+            </span>
+          </div>
         )}
       </div>
     </div>

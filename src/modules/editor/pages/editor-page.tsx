@@ -46,12 +46,12 @@ export function EditorPage() {
   if (isLoading) {
     return (
       <div
-        className="flex h-screen items-center justify-center"
-        style={{ backgroundColor: '#0A0A0A' }}
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{ backgroundColor: '#1A1A1A' }}
       >
         <div className="flex flex-col items-center gap-3">
           <div
-            className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+            className="w-8 h-8 rounded-full border-2 animate-spin"
             style={{ borderColor: '#FF6B35', borderTopColor: 'transparent' }}
           />
           <p className="text-sm" style={{ color: '#666' }}>Loading editor…</p>
@@ -62,8 +62,8 @@ export function EditorPage() {
 
   return (
     <div
-      className="flex flex-col h-screen overflow-hidden"
-      style={{ backgroundColor: '#0A0A0A' }}
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden"
+      style={{ backgroundColor: '#1A1A1A' }}
     >
       <EditorTopbar
         pageName={pageName}

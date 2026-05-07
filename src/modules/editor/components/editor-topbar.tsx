@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Cloud, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Cloud, ExternalLink, Eye, EyeOff, Loader2, Monitor, Smartphone, Tablet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/state/store/auth';
-import { cn } from '@/lib/utils';
 
 interface EditorTopbarProps {
   pageName: string;
@@ -17,6 +16,8 @@ interface EditorTopbarProps {
   onRenamePage: (name: string) => void;
   setPageName: (name: string) => void;
 }
+
+type Viewport = 'desktop' | 'tablet' | 'mobile';
 
 export function EditorTopbar({
   pageName,
@@ -33,6 +34,7 @@ export function EditorTopbar({
 }: EditorTopbarProps) {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.itemId ?? '');
+  const [viewport, setViewport] = useState<Viewport>('desktop');
   const [editingName, setEditingName] = useState(false);
   const [localName, setLocalName] = useState(pageName);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,25 +65,31 @@ export function EditorTopbar({
 
   const saveStatus = isSaving ? 'saving' : isDirty ? 'unsaved' : 'saved';
 
+  const VIEWPORTS: { id: Viewport; icon: React.ReactNode }[] = [
+    { id: 'desktop', icon: <Monitor className="h-[15px] w-[15px]" /> },
+    { id: 'tablet',  icon: <Tablet  className="h-[15px] w-[15px]" /> },
+    { id: 'mobile',  icon: <Smartphone className="h-[15px] w-[15px]" /> },
+  ];
+
   return (
     <header
-      className="flex items-center gap-3 px-4 shrink-0 z-10"
-      style={{ height: 56, backgroundColor: '#111111', borderBottom: '1px solid #2A2A2A' }}
+      className="flex items-center px-3 gap-3 shrink-0 z-20"
+      style={{ height: 56, backgroundColor: '#1A1A1A', borderBottom: '1px solid #2A2A2A' }}
     >
-      {/* Back */}
-      <button
-        type="button"
+      {/* Orange logo */}
+      <div
+        className="flex items-center justify-center text-white font-black text-[13px] shrink-0 cursor-pointer select-none"
+        style={{ width: 32, height: 32, backgroundColor: '#FF6B35', borderRadius: 8 }}
         onClick={() => navigate('/vibe-dashboard')}
         title="Back to dashboard"
-        className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors text-[#888888] hover:text-white hover:bg-[#2A2A2A]"
       >
-        <ArrowLeft className="h-4 w-4" />
-      </button>
+        V
+      </div>
 
-      <div className="w-px h-5 bg-[#2A2A2A]" />
+      <div style={{ width: 1, height: 20, backgroundColor: '#333' }} />
 
-      {/* Page name */}
-      <div className="flex items-center min-w-0">
+      {/* Page name + save status */}
+      <div className="flex items-center gap-2 min-w-0">
         {editingName ? (
           <input
             ref={inputRef}
@@ -89,90 +97,113 @@ export function EditorTopbar({
             onChange={(e) => setLocalName(e.target.value)}
             onBlur={commitName}
             onKeyDown={handleNameKeyDown}
-            className="bg-[#1A1A1A] border border-[#FF6B35] text-white text-sm font-semibold rounded-md px-2 py-1 outline-none w-48"
             autoFocus
+            style={{
+              background: 'transparent',
+              borderBottom: '1px solid #FF6B35',
+              color: 'white',
+              fontSize: 14,
+              fontWeight: 600,
+              outline: 'none',
+              width: 160,
+            }}
           />
         ) : (
           <button
             type="button"
             onClick={startEditing}
-            title="Click to rename page"
-            className="text-sm font-semibold text-white hover:text-[#FF6B35] transition-colors truncate max-w-[200px] text-left"
+            title="Click to rename"
+            style={{
+              color: 'white', fontSize: 14, fontWeight: 600,
+              background: 'none', border: 'none', cursor: 'pointer',
+              maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}
           >
             {pageName || 'Untitled Page'}
           </button>
         )}
+
+        {/* Save status */}
+        <div className="flex items-center gap-1">
+          {saveStatus === 'saving' ? (
+            <Loader2 style={{ width: 12, height: 12, color: '#888' }} className="animate-spin" />
+          ) : (
+            <Cloud style={{ width: 12, height: 12, color: '#888' }} />
+          )}
+          <span style={{ fontSize: 11, color: '#888' }}>
+            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Unsaved'}
+          </span>
+        </div>
       </div>
 
-      {/* Center: Edit / Preview tabs */}
+      {/* Center: viewport toggles */}
       <div className="flex-1 flex justify-center">
         <div
-          className="flex items-center rounded-lg p-0.5 gap-0.5"
-          style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A' }}
+          className="flex items-center gap-0.5 p-1 rounded-lg"
+          style={{ backgroundColor: '#262626' }}
         >
-          <button
-            type="button"
-            onClick={() => previewMode && onPreviewToggle()}
-            className={cn(
-              'px-4 py-1.5 rounded-md text-xs font-semibold transition-all',
-              !previewMode
-                ? 'bg-[#2A2A2A] text-white shadow-sm'
-                : 'text-[#888888] hover:text-white'
-            )}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => !previewMode && onPreviewToggle()}
-            className={cn(
-              'px-4 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5',
-              previewMode
-                ? 'bg-[#2A2A2A] text-white shadow-sm'
-                : 'text-[#888888] hover:text-white'
-            )}
-          >
-            {previewMode ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-            Preview
-          </button>
+          {VIEWPORTS.map(({ id, icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setViewport(id)}
+              title={id.charAt(0).toUpperCase() + id.slice(1)}
+              style={{
+                width: 32, height: 32, borderRadius: 6,
+                backgroundColor: viewport === id ? '#FF6B35' : 'transparent',
+                color: viewport === id ? 'white' : '#666',
+                border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => { if (viewport !== id) e.currentTarget.style.color = '#CCC'; }}
+              onMouseLeave={(e) => { if (viewport !== id) e.currentTarget.style.color = '#666'; }}
+            >
+              {icon}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Right cluster */}
-      <div className="flex items-center gap-2 shrink-0">
-        {/* Save status */}
-        <div className="flex items-center gap-1.5">
-          {saveStatus === 'saving' ? (
-            <Loader2 className="h-3.5 w-3.5 text-[#888888] animate-spin" />
-          ) : (
-            <Cloud className={cn('h-3.5 w-3.5', saveStatus === 'saved' ? 'text-emerald-400' : 'text-amber-400')} />
-          )}
-          <span
-            className={cn(
-              'text-xs font-medium',
-              saveStatus === 'saving' ? 'text-[#888888]' :
-              saveStatus === 'saved'  ? 'text-emerald-400' : 'text-amber-400'
-            )}
-          >
-            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Unsaved'}
-          </span>
-        </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Preview button */}
+        <button
+          type="button"
+          onClick={onPreviewToggle}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+            backgroundColor: previewMode ? '#FF6B35' : '#333',
+            color: previewMode ? 'white' : '#CCC',
+            border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+          }}
+        >
+          {previewMode
+            ? <EyeOff style={{ width: 13, height: 13 }} />
+            : <Eye style={{ width: 13, height: 13 }} />}
+          {previewMode ? 'Edit' : 'Preview'}
+        </button>
 
-        <div className="w-px h-4 bg-[#2A2A2A]" />
+        <div style={{ width: 1, height: 20, backgroundColor: '#333' }} />
 
         {/* Draft/Published pill */}
         <button
           type="button"
           onClick={onPublishToggle}
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border',
-            isPublished
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-              : 'bg-[#1A1A1A] text-[#888888] border-[#2A2A2A] hover:border-[#444] hover:text-white'
-          )}
           title={isPublished ? 'Click to unpublish' : 'Click to publish'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+            border: `1px solid ${isPublished ? '#10b981' : '#3A3A3A'}`,
+            color: isPublished ? '#10b981' : '#888',
+            backgroundColor: 'transparent', cursor: 'pointer', transition: 'all 0.15s',
+          }}
         >
-          <span className={cn('w-1.5 h-1.5 rounded-full', isPublished ? 'bg-emerald-400' : 'bg-[#555555]')} />
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%',
+            backgroundColor: isPublished ? '#10b981' : '#555',
+          }} />
           {isPublished ? 'Published' : 'Draft'}
         </button>
 
@@ -181,7 +212,12 @@ export function EditorTopbar({
           type="button"
           onClick={onSave}
           disabled={isSaving || !isDirty}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-[#1A1A1A] border border-[#2A2A2A] text-[#888888] hover:text-white hover:border-[#444] disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{
+            padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+            backgroundColor: '#333', color: isDirty ? 'white' : '#555',
+            border: '1px solid #3A3A3A', cursor: isDirty ? 'pointer' : 'default',
+            opacity: isSaving ? 0.6 : 1, transition: 'all 0.15s',
+          }}
         >
           Save
         </button>
@@ -190,21 +226,33 @@ export function EditorTopbar({
         <button
           type="button"
           onClick={onPublishToggle}
-          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-white hover:opacity-90 active:scale-95"
-          style={{ backgroundColor: '#FF6B35' }}
+          style={{
+            padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700,
+            backgroundColor: '#FF6B35', color: 'white',
+            border: 'none', cursor: 'pointer', transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
         >
           {isPublished ? 'Unpublish' : 'Publish'}
         </button>
 
-        {/* Open live site */}
+        {/* External link */}
         {isPublished && userId && slug && (
           <button
             type="button"
             onClick={openLiveSite}
-            title="Open live site in new tab"
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-[#888888] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+            title="Open live site"
+            style={{
+              width: 32, height: 32, borderRadius: 6, backgroundColor: '#333',
+              color: '#888', border: '1px solid #3A3A3A',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#FF6B35'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#3A3A3A'; }}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink style={{ width: 13, height: 13 }} />
           </button>
         )}
       </div>
