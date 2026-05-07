@@ -18,6 +18,7 @@ export function useEditor(pageId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [pageName, setPageName] = useState('');
   const [siteId, setSiteId] = useState('');
+  const [slug, setSlug] = useState('');
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -32,6 +33,7 @@ export function useEditor(pageId: string) {
           setIsPublished(layout.isPublished);
           setPageName(layout.pageName);
           setSiteId(layout.siteId);
+          setSlug(layout.slug);
         }
       })
       .finally(() => setIsLoading(false));
@@ -97,7 +99,7 @@ export function useEditor(pageId: string) {
   const updateComponentProps = useCallback(
     (id: string, patch: Partial<VibeComponentProps>) => {
       setComponents((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, props: { ...c.props, ...patch } } : c))
+        prev.map((c) => (c.id === id ? { ...c, props: { ...c.props, ...patch } as VibeComponentProps } : c))
       );
       setIsDirty(true);
     },
@@ -126,6 +128,7 @@ export function useEditor(pageId: string) {
     isLoading,
     pageName,
     siteId,
+    slug,
     setSelectedId,
     addComponent,
     removeComponent,

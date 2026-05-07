@@ -3,6 +3,9 @@ export enum ComponentType {
   TextBlock = 'TextBlock',
   ImageGallery = 'ImageGallery',
   ContactForm = 'ContactForm',
+  Testimonial = 'Testimonial',
+  FeaturesGrid = 'FeaturesGrid',
+  CTABanner = 'CTABanner',
 }
 
 export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
@@ -14,6 +17,10 @@ export interface HeroSectionProps {
   bgColor: string;
   imageUrl: string;
   ctaText: string;
+  alignment?: 'left' | 'center' | 'right';
+  overlayOpacity?: number;
+  gradientFrom?: string;
+  gradientTo?: string;
 }
 
 export interface TextBlockProps {
@@ -42,11 +49,42 @@ export interface ContactFormProps {
   submitText: string;
 }
 
+export interface TestimonialProps {
+  quote: string;
+  authorName: string;
+  authorRole: string;
+  authorImage: string;
+  bgColor: string;
+}
+
+export interface FeatureItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface FeaturesGridProps {
+  title: string;
+  features: FeatureItem[];
+}
+
+export interface CTABannerProps {
+  heading: string;
+  subtext: string;
+  buttonText: string;
+  buttonUrl: string;
+  bgColor: string;
+  textColor: string;
+}
+
 export type VibeComponentProps =
   | HeroSectionProps
   | TextBlockProps
   | ImageGalleryProps
-  | ContactFormProps;
+  | ContactFormProps
+  | TestimonialProps
+  | FeaturesGridProps
+  | CTABannerProps;
 
 export interface VibeComponent {
   id: string;
@@ -56,9 +94,9 @@ export interface VibeComponent {
 }
 
 export interface PageLayout {
-  _id?: string; // MongoDB document ID — used for updates/deletes
+  _id?: string;
   pageId: string;
-  siteId: string; // parent site reference — used to query all pages of a site
+  siteId: string;
   userId: string;
   pageName: string;
   slug: string;
@@ -67,7 +105,7 @@ export interface PageLayout {
 }
 
 export interface WebsiteProject {
-  _id?: string; // MongoDB document ID
+  _id?: string;
   siteId: string;
   userId: string;
   siteName: string;
@@ -78,6 +116,7 @@ export type PartialProps<T extends VibeComponentProps> = Partial<T>;
 export interface ComponentDefinition {
   type: ComponentType;
   label: string;
+  description: string;
   defaultProps: VibeComponentProps;
 }
 
@@ -85,17 +124,21 @@ export const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
   {
     type: ComponentType.Hero,
     label: 'Hero Section',
+    description: 'Full-width banner with heading, subtext and CTA',
     defaultProps: {
-      heading: 'Welcome',
-      subtext: 'Your subtitle here',
+      heading: 'Welcome to Your Site',
+      subtext: 'Describe what you do in one compelling sentence.',
       bgColor: '#1a1a2e',
       imageUrl: '',
       ctaText: 'Get Started',
+      alignment: 'left',
+      overlayOpacity: 0.3,
     } satisfies HeroSectionProps,
   },
   {
     type: ComponentType.TextBlock,
     label: 'Text Block',
+    description: 'Rich paragraph with font and alignment controls',
     defaultProps: {
       content: 'Enter your text here...',
       fontSize: '16px',
@@ -106,6 +149,7 @@ export const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
   {
     type: ComponentType.ImageGallery,
     label: 'Image Gallery',
+    description: 'Responsive grid of images with captions',
     defaultProps: {
       images: ['https://picsum.photos/400/300?random=1'],
       columns: 3,
@@ -115,6 +159,7 @@ export const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
   {
     type: ComponentType.ContactForm,
     label: 'Contact Form',
+    description: 'Customizable form to collect visitor messages',
     defaultProps: {
       title: 'Contact Us',
       fields: [
@@ -124,5 +169,43 @@ export const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
       ],
       submitText: 'Send Message',
     } satisfies ContactFormProps,
+  },
+  {
+    type: ComponentType.Testimonial,
+    label: 'Testimonial',
+    description: 'Customer quote card with avatar and attribution',
+    defaultProps: {
+      quote: 'This product changed everything for us. Absolutely incredible service and results!',
+      authorName: 'Jane Smith',
+      authorRole: 'CEO, Example Co.',
+      authorImage: '',
+      bgColor: '#1e293b',
+    } satisfies TestimonialProps,
+  },
+  {
+    type: ComponentType.FeaturesGrid,
+    label: 'Features Grid',
+    description: '3-column grid showcasing product features',
+    defaultProps: {
+      title: 'Why Choose Us',
+      features: [
+        { icon: '⚡', title: 'Lightning Fast', description: 'Optimised for speed from the ground up.' },
+        { icon: '🎨', title: 'Beautiful Design', description: 'Stunning visuals that impress every visitor.' },
+        { icon: '🔒', title: 'Secure & Reliable', description: 'Enterprise-grade security built right in.' },
+      ],
+    } satisfies FeaturesGridProps,
+  },
+  {
+    type: ComponentType.CTABanner,
+    label: 'CTA Banner',
+    description: 'Full-width call-to-action with a prominent button',
+    defaultProps: {
+      heading: 'Ready to get started?',
+      subtext: 'Join thousands of happy customers today.',
+      buttonText: 'Get Started Free',
+      buttonUrl: '#',
+      bgColor: '#4f46e5',
+      textColor: '#ffffff',
+    } satisfies CTABannerProps,
   },
 ];
