@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { ComponentType, PageLayout, VibeComponent } from '@/types/vibebuilder';
 import { getPublicPageLayout, getPublicSitePages } from '@/lib/blocks-api';
+import { useAuthStore } from '@/state/store/auth';
 import { HeroSection } from '@/components/vibe/hero-section';
 import { TextBlock } from '@/components/vibe/text-block';
 import { ImageGallery } from '@/components/vibe/image-gallery';
@@ -79,18 +80,43 @@ function NotFound() {
   );
 }
 
+// ---- Login required ----
+
+function LoginRequired() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 text-center px-4">
+      <p className="text-xl font-semibold">Please log in to view this page</p>
+      <p className="text-sm text-muted-foreground">
+        You need to be signed in to view published pages.
+      </p>
+      <a
+        href="/login"
+        className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        Sign in
+      </a>
+    </div>
+  );
+}
+
 // ---- Main renderer ----
 
 export function SiteRendererPage() {
   const { userId = '', slug = '' } = useParams<{ userId: string; slug: string }>();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const [page, setPage] = useState<PageLayout | null>(null);
   const [navPages, setNavPages] = useState<PageLayout[]>([]);
-  const [status, setStatus] = useState<'loading' | 'found' | 'not-found'>('loading');
+  const [status, setStatus] = useState<'loading' | 'found' | 'not-found' | 'login-required'>('loading');
 
   useEffect(() => {
     if (!userId || !slug) {
       setStatus('not-found');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setStatus('login-required');
       return;
     }
 
@@ -112,7 +138,11 @@ export function SiteRendererPage() {
         console.error('[SiteRenderer] getPublicPageLayout error:', err);
         setStatus('not-found');
       });
-  }, [userId, slug]);
+  }, [userId, slug, isAuthenticated]);
+
+  if (status === 'login-required') {
+    return <LoginRequired />;
+  }
 
   if (status === 'loading') {
     return (

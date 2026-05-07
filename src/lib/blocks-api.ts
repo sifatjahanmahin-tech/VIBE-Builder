@@ -31,36 +31,6 @@ function formatSlugAsName(slug: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// ---------------------------------------------------------------------------
-// Public (unauthenticated) GraphQL fetch — used by the live renderer
-// ---------------------------------------------------------------------------
-
-async function publicQuery<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const url = `${import.meta.env.VITE_BLOCKS_API_URL}/graphql/v1/graphql`;
-  console.log('[publicQuery] URL:', url);
-  console.log('[publicQuery] query:', query.trim());
-  console.log('[publicQuery] variables:', JSON.stringify(variables, null, 2));
-
-  const res = await fetch(url, {
-    method: 'POST',
-    mode: 'cors',
-    credentials: 'omit',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Blocks-Key': import.meta.env.VITE_X_BLOCKS_KEY,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    console.error('[publicQuery] HTTP error:', res.status, text);
-    throw new Error(`GraphQL HTTP ${res.status}: ${text}`);
-  }
-  const json = await res.json();
-  console.log('[publicQuery] response:', JSON.stringify(json, null, 2));
-  if (json.errors?.length) throw new Error(json.errors[0].message);
-  return json.data as T;
-}
 
 // ---------------------------------------------------------------------------
 // Website Projects
@@ -330,7 +300,8 @@ function toPageLayout(r: any): PageLayout {
 }
 
 // ---------------------------------------------------------------------------
-// Public queries — no auth, used by the live renderer
+// Renderer queries — use the same authenticated graphqlClient as all other
+// modules (credentials:'include' on the deployed domain handles session auth)
 // ---------------------------------------------------------------------------
 
 export async function getPublicPageLayout(
@@ -339,7 +310,7 @@ export async function getPublicPageLayout(
 ): Promise<PageLayout | null> {
   const query = `
     query GetPublicPage($input: DynamicQueryInput) {
-      PageLayouts(input: $input) {
+      getPageLayouts(input: $input) {
         items {
           ItemId
           pageId
@@ -353,22 +324,25 @@ export async function getPublicPageLayout(
       }
     }
   `;
-  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
-    input: {
-      filter: JSON.stringify({ userId, slug, isPublished: true }),
-      sort: '{}',
-      pageNo: 1,
-      pageSize: 1,
+  const data = await graphqlClient.query<{ getPageLayouts: { items: any[] } }>({
+    query,
+    variables: {
+      input: {
+        filter: JSON.stringify({ userId, slug, isPublished: true }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 1,
+      },
     },
   });
-  const item = data.PageLayouts?.items?.[0];
+  const item = data.getPageLayouts?.items?.[0];
   return item ? toPageLayout(item) : null;
 }
 
 export async function getPublicSitePages(userId: string, siteId: string): Promise<PageLayout[]> {
   const query = `
     query GetPublicSitePages($input: DynamicQueryInput) {
-      PageLayouts(input: $input) {
+      getPageLayouts(input: $input) {
         items {
           ItemId
           pageId
@@ -381,13 +355,16 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
       }
     }
   `;
-  const data = await publicQuery<{ PageLayouts: { items: any[] } }>(query, {
-    input: {
-      filter: JSON.stringify({ userId, siteId, isPublished: true }),
-      sort: '{}',
-      pageNo: 1,
-      pageSize: 100,
+  const data = await graphqlClient.query<{ getPageLayouts: { items: any[] } }>({
+    query,
+    variables: {
+      input: {
+        filter: JSON.stringify({ userId, siteId, isPublished: true }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 100,
+      },
     },
   });
-  return (data.PageLayouts?.items ?? []).map(toPageLayout);
+  return (data.getPageLayouts?.items ?? []).map(toPageLayout);
 }
