@@ -13,12 +13,14 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { graphqlClient } from './graphql-client';
+import { clients } from './https';
 import { PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
 
 const projectKey = import.meta.env.VITE_X_BLOCKS_KEY || '';
-const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-// Public (unauthenticated) endpoint — no auth header, uses schema-name+'s' field naming
-const PUBLIC_GRAPHQL_URL = `${baseUrl}/graphql/v1/graphql`;
+// Use VITE_BLOCKS_API_URL so the request goes through the same base URL
+// as authenticated calls — CORS is already configured for it.
+const blocksApiUrl = (import.meta.env.VITE_BLOCKS_API_URL || import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const PUBLIC_GRAPHQL_URL = `${blocksApiUrl}/graphql/v1/graphql`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,23 +47,16 @@ async function publicQuery<T>(query: string, variables: Record<string, unknown> 
   console.log('[publicQuery] query:', query.trim());
   console.log('[publicQuery] variables:', JSON.stringify(variables, null, 2));
 
-  const res = await fetch(PUBLIC_GRAPHQL_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-blocks-key': projectKey,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    console.error('[publicQuery] HTTP error:', res.status, text);
-    throw new Error(`GraphQL HTTP ${res.status}: ${text}`);
-  }
-  const json = await res.json();
+  // Use clients.post so credentials:'include' is sent on non-localhost,
+  // matching what authenticated graphqlClient calls do (fixes CORS).
+  const json = await clients.post<{ data?: T; errors?: Array<{ message: string }> }>(
+    PUBLIC_GRAPHQL_URL,
+    JSON.stringify({ query, variables }),
+    { 'Content-Type': 'application/json', 'x-blocks-key': projectKey }
+  );
   console.log('[publicQuery] response:', JSON.stringify(json, null, 2));
   if (json.errors?.length) throw new Error(json.errors[0].message);
-  return json.data as T;
+  return (json.data as T) ?? ({} as T);
 }
 
 // ---------------------------------------------------------------------------
