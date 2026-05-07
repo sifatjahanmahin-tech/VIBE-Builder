@@ -13,6 +13,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { graphqlClient } from './graphql-client';
+import { useAuthStore } from '@/state/store/auth';
 import { PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,50 @@ function formatSlugAsName(slug: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+
+// ---------------------------------------------------------------------------
+// File Upload
+// ---------------------------------------------------------------------------
+
+export async function uploadImageFile(file: File): Promise<string> {
+  const baseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined ?? '').replace(/\/$/, '');
+  const projectKey = import.meta.env.VITE_X_BLOCKS_KEY as string | undefined ?? '';
+  const isLocalhost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const headers: Record<string, string> = { 'x-blocks-key': projectKey };
+  const fetchOpts: RequestInit = { method: 'POST', body: formData, headers };
+
+  if (isLocalhost) {
+    const token = useAuthStore.getState().accessToken;
+    if (token) headers['Authorization'] = `bearer ${token}`;
+  } else {
+    fetchOpts.credentials = 'include';
+  }
+
+  const response = await fetch(`${baseUrl}/uds/v1/Files/UploadFile`, fetchOpts);
+
+  if (!response.ok) {
+    let detail = response.statusText;
+    try { detail = await response.text(); } catch { /* use statusText */ }
+    throw new Error(`Upload failed (${response.status}): ${detail}`);
+  }
+
+  const result = await response.json() as Record<string, unknown>;
+  const url = (
+    result.fileUrl ??
+    (result.data as Record<string, unknown> | undefined)?.fileUrl ??
+    result.url ??
+    result.downloadUrl
+  ) as string | undefined;
+
+  if (!url) throw new Error('Upload succeeded but no file URL was returned');
+  return url;
+}
 
 // ---------------------------------------------------------------------------
 // Website Projects

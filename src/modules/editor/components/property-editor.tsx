@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { ChevronRight, SlidersHorizontal, Trash2, Plus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ChevronRight, SlidersHorizontal, Trash2, Plus, Upload, Loader2 } from 'lucide-react';
+import { uploadImageFile } from '@/lib/blocks-api';
 import { ComponentType, VibeComponent, VibeComponentProps } from '@/types/vibebuilder';
 import type {
   HeroSectionProps,
@@ -144,6 +145,93 @@ function DField({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
+// ── Image upload input ───────────────────────────────────────────────────────
+
+function ImageUploadInput({
+  value, onChange, placeholder,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  placeholder?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const url = await uploadImageFile(file);
+      onChange(url);
+    } catch (err) {
+      setUploadError((err as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder ?? 'https://…'}
+          style={{ ...inputStyle, flex: 1 }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFile}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          title={uploading ? 'Uploading…' : 'Upload image'}
+          style={{
+            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 32, height: 32, borderRadius: 6,
+            backgroundColor: '#333', border: '1px solid #444',
+            color: uploading ? '#666' : '#CCC',
+            cursor: uploading ? 'not-allowed' : 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            if (!uploading) {
+              e.currentTarget.style.borderColor = '#FF6B35';
+              e.currentTarget.style.color = '#FF6B35';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!uploading) {
+              e.currentTarget.style.borderColor = '#444';
+              e.currentTarget.style.color = '#CCC';
+            }
+          }}
+        >
+          {uploading
+            ? <Loader2 style={{ width: 13, height: 13 }} className="animate-spin" />
+            : <Upload style={{ width: 13, height: 13 }} />
+          }
+        </button>
+      </div>
+      {uploadError && (
+        <p style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>{uploadError}</p>
+      )}
+    </div>
+  );
+}
+
 // ── Collapsible Section ──────────────────────────────────────────────────────
 
 function Section({ title, children, defaultOpen = true }: {
@@ -249,7 +337,7 @@ function HeroForm({ props, onChange }: {
           </div>
         </DField>
         <DField label="Background Image URL">
-          <DInput value={props.imageUrl} placeholder="https://…" onChange={(v) => onChange({ imageUrl: v })} />
+          <ImageUploadInput value={props.imageUrl} onChange={(v) => onChange({ imageUrl: v })} />
         </DField>
         {props.imageUrl && (
           <DField label="Image Overlay Opacity">
@@ -315,22 +403,21 @@ function ImageGalleryForm({ props, onChange }: {
       <Section title="Images">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {props.images.map((url, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: 6 }}>
-              <input
-                type="text" value={url} placeholder="https://…"
-                onChange={(e) => {
-                  const updated = [...props.images];
-                  updated[idx] = e.target.value;
-                  onChange({ images: updated });
-                }}
-                style={{ ...inputStyle, fontSize: 11 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
-              />
+            <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <ImageUploadInput
+                  value={url}
+                  onChange={(newUrl) => {
+                    const updated = [...props.images];
+                    updated[idx] = newUrl;
+                    onChange({ images: updated });
+                  }}
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => onChange({ images: props.images.filter((_, i) => i !== idx) })}
-                style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', flexShrink: 0 }}
+                style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', flexShrink: 0, marginTop: 6 }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
               >
@@ -414,7 +501,7 @@ function TestimonialForm({ props, onChange }: {
           <DInput value={props.authorRole} placeholder="CEO, Company" onChange={(v) => onChange({ authorRole: v })} />
         </DField>
         <DField label="Author Image URL">
-          <DInput value={props.authorImage} placeholder="https://…" onChange={(v) => onChange({ authorImage: v })} />
+          <ImageUploadInput value={props.authorImage} onChange={(v) => onChange({ authorImage: v })} />
         </DField>
         <DColorField label="Background Color" value={props.bgColor} onChange={(v) => onChange({ bgColor: v })} />
       </Section>
