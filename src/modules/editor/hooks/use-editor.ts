@@ -140,6 +140,7 @@ export function useEditor(pageId: string) {
     slug,
     setSelectedId,
     setPageName,
+    setSlug,
     addComponent,
     removeComponent,
     updateComponentProps,

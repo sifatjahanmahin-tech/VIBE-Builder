@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useEditor } from '../hooks/use-editor';
 import { EditorTopbar } from '../components/editor-topbar';
 import { ComponentPalette } from '../components/component-palette';
 import { EditorCanvas } from '../components/editor-canvas';
 import { PropertyEditor } from '../components/property-editor';
+import { deletePage, updatePageSlug } from '@/lib/blocks-api';
+import { useState } from 'react';
 
 export function EditorPage() {
-  const { pageId = '' } = useParams<{ siteId: string; pageId: string }>();
+  const { siteId = '', pageId = '' } = useParams<{ siteId: string; pageId: string }>();
+  const navigate = useNavigate();
   const [previewMode, setPreviewMode] = useState(false);
 
   const {
@@ -22,6 +25,7 @@ export function EditorPage() {
     slug,
     setSelectedId,
     setPageName,
+    setSlug,
     addComponent,
     removeComponent,
     updateComponentProps,
@@ -42,6 +46,16 @@ export function EditorPage() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isDirty, isSaving, handleSave]);
+
+  async function handleUpdateSlug(newSlug: string) {
+    setSlug(newSlug);
+    await updatePageSlug(pageId, newSlug);
+  }
+
+  async function handleDeletePage() {
+    await deletePage(pageId);
+    navigate('/vibe-dashboard');
+  }
 
   if (isLoading) {
     return (
@@ -80,7 +94,17 @@ export function EditorPage() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {!previewMode && <ComponentPalette onAdd={addComponent} />}
+        {!previewMode && (
+          <ComponentPalette
+            onAdd={addComponent}
+            siteId={siteId}
+            pageId={pageId}
+            slug={slug}
+            pageName={pageName}
+            onUpdateSlug={handleUpdateSlug}
+            onDeletePage={handleDeletePage}
+          />
+        )}
 
         <EditorCanvas
           components={components}

@@ -262,6 +262,20 @@ export async function publishPage(pageId: string, isPublished: boolean): Promise
   });
 }
 
+export async function updatePageSlug(pageId: string, slug: string): Promise<void> {
+  const mutation = `
+    mutation UpdatePageSlug($filter: String!, $input: PageLayoutUpdateInput!) {
+      updatePageLayout(filter: $filter, input: $input) {
+        totalImpactedData acknowledged
+      }
+    }
+  `;
+  await graphqlClient.mutate({
+    query: mutation,
+    variables: { filter: JSON.stringify({ pageId }), input: { slug } },
+  });
+}
+
 export async function renamePage(pageId: string, pageName: string): Promise<void> {
   const mutation = `
     mutation RenamePage($filter: String!, $input: PageLayoutUpdateInput!) {
