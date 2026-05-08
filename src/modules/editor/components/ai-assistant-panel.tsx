@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { X, Sparkles, Loader2, Send, Wand2, Palette, FileText, Zap } from 'lucide-react';
+import { X, Sparkles, Send, Wand2, Palette, FileText, Zap, AlertCircle } from 'lucide-react';
 import type { VibeComponent, VibeComponentProps } from '@/types/vibebuilder';
 
 // ── Anthropic API call ───────────────────────────────────────────────────────
@@ -84,14 +84,11 @@ Keep the same component types and structure. Return ONLY the JSON array.`;
 
 function extractJSON(text: string): unknown {
   const trimmed = text.trim();
-  // Try direct parse first
   try { return JSON.parse(trimmed); } catch { /* fall through */ }
-  // Extract from code fences
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) {
     try { return JSON.parse(fenced[1].trim()); } catch { /* fall through */ }
   }
-  // Find first [ or { to last ] or }
   const start = trimmed.search(/[{[]/);
   if (start >= 0) {
     const last = Math.max(trimmed.lastIndexOf(']'), trimmed.lastIndexOf('}'));
@@ -99,11 +96,11 @@ function extractJSON(text: string): unknown {
       try { return JSON.parse(trimmed.slice(start, last + 1)); } catch { /* fall through */ }
     }
   }
-  throw new Error('Could not parse JSON from AI response');
+  throw new Error("AI couldn't generate a valid layout. Try being more specific.");
 }
 
 function normalizeComponents(raw: unknown): VibeComponent[] {
-  if (!Array.isArray(raw)) throw new Error('AI response is not an array');
+  if (!Array.isArray(raw)) throw new Error("AI couldn't generate a valid layout. Try being more specific.");
   return (raw as any[]).map((item, i) => ({
     id: item.id ?? uuidv4(),
     type: item.type,
@@ -123,11 +120,46 @@ interface AIPanelProps {
   onUpdateProps: (patch: Partial<VibeComponentProps>) => void;
 }
 
-// ── Log entry ────────────────────────────────────────────────────────────────
-
 interface LogEntry {
   role: 'user' | 'ai' | 'error';
   text: string;
+}
+
+const SUGGESTION_CHIPS = [
+  'Landing page for a restaurant',
+  'Portfolio for a photographer',
+  'SaaS product pricing page',
+  'Personal blog homepage',
+  'E-commerce store front',
+];
+
+// ── Loading dots animation ────────────────────────────────────────────────────
+
+function LoadingDots() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px' }}>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 6, height: 6, borderRadius: '50%',
+              backgroundColor: '#FF6B35',
+              animation: `vibe-bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+              display: 'inline-block',
+            }}
+          />
+        ))}
+      </div>
+      <span style={{ fontSize: 12, color: '#666' }}>Thinking…</span>
+      <style>{`
+        @keyframes vibe-bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40% { transform: translateY(-6px); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -138,6 +170,8 @@ export function AIAssistantPanel({
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
+
+  const hasApiKey = !!(import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined);
 
   function addLog(entry: LogEntry) {
     setLog((prev) => [...prev, entry]);
@@ -182,7 +216,6 @@ export function AIAssistantPanel({
         addLog({ role: 'ai', text: 'Copy updated on the selected block.' });
       } else if (action === 'palette') {
         const palette = extractJSON(raw) as Record<string, string>;
-        // Apply palette colors to all components that have bgColor/textColor
         const updated = components.map((c) => {
           const props = { ...c.props } as Record<string, unknown>;
           if ('bgColor' in props) props.bgColor = palette.bg ?? palette.secondary ?? props.bgColor;
@@ -195,7 +228,7 @@ export function AIAssistantPanel({
         const parsed = extractJSON(raw);
         const newComponents = normalizeComponents(parsed);
         onSetComponents(newComponents);
-        addLog({ role: 'ai', text: `Generated ${newComponents.length} blocks. Canvas updated.` });
+        addLog({ role: 'ai', text: `Generated ${newComponents.length} components — applied to canvas.` });
       }
     } catch (err) {
       addLog({ role: 'error', text: (err as Error).message });
@@ -243,6 +276,20 @@ export function AIAssistantPanel({
         </button>
       </div>
 
+      {/* API key warning */}
+      {!hasApiKey && (
+        <div style={{
+          margin: '12px 16px', padding: '10px 12px', borderRadius: 8,
+          backgroundColor: '#FF6B3510', border: '1px solid #FF6B3530',
+          display: 'flex', gap: 8, alignItems: 'flex-start', flexShrink: 0,
+        }}>
+          <AlertCircle style={{ width: 14, height: 14, color: '#FF6B35', flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 11, color: '#FF9F7A', lineHeight: 1.5, margin: 0 }}>
+            AI features require an API key. Add <code style={{ backgroundColor: '#FF6B3520', padding: '1px 4px', borderRadius: 3 }}>VITE_ANTHROPIC_API_KEY</code> to your .env file.
+          </p>
+        </div>
+      )}
+
       {/* Quick actions */}
       <div style={{ padding: '12px 16px', borderBottom: '1px solid #2A2A2A', flexShrink: 0 }}>
         <p style={{ fontSize: 10, fontWeight: 700, color: '#555', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
@@ -254,16 +301,17 @@ export function AIAssistantPanel({
               key={id}
               type="button"
               onClick={() => void run(id)}
-              disabled={loading}
+              disabled={loading || !hasApiKey}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '8px 10px', borderRadius: 8,
                 backgroundColor: '#262626', border: '1px solid #333',
-                color: '#CCC', fontSize: 11, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1, transition: 'all 0.15s', textAlign: 'left',
+                color: '#CCC', fontSize: 11, fontWeight: 500,
+                cursor: loading || !hasApiKey ? 'not-allowed' : 'pointer',
+                opacity: loading || !hasApiKey ? 0.5 : 1, transition: 'all 0.15s', textAlign: 'left',
               }}
               onMouseEnter={(e) => {
-                if (!loading) {
+                if (!loading && hasApiKey) {
                   e.currentTarget.style.borderColor = '#FF6B35';
                   e.currentTarget.style.color = 'white';
                 }
@@ -287,11 +335,48 @@ export function AIAssistantPanel({
         scrollbarWidth: 'thin', scrollbarColor: '#333 transparent',
       }}>
         {log.length === 0 && (
-          <div style={{ textAlign: 'center', paddingTop: 32 }}>
-            <Sparkles style={{ width: 32, height: 32, color: '#333', margin: '0 auto 12px' }} />
-            <p style={{ fontSize: 12, color: '#555', lineHeight: 1.5 }}>
-              Use quick actions above or describe what you want to build below.
-            </p>
+          <div style={{ paddingTop: 24 }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <Sparkles style={{ width: 28, height: 28, color: '#333', margin: '0 auto 10px' }} />
+              <p style={{ fontSize: 12, color: '#555', lineHeight: 1.5 }}>
+                Describe your page or pick a suggestion below.
+              </p>
+            </div>
+            {/* Suggestion chips */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: '#444', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>
+                Try these
+              </p>
+              {SUGGESTION_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  disabled={loading || !hasApiKey}
+                  onClick={() => {
+                    setPrompt(chip);
+                    void run('generate');
+                  }}
+                  style={{
+                    padding: '7px 12px', borderRadius: 8, textAlign: 'left',
+                    backgroundColor: '#1E1E1E', border: '1px solid #2E2E2E',
+                    color: '#999', fontSize: 11, cursor: loading || !hasApiKey ? 'not-allowed' : 'pointer',
+                    opacity: loading || !hasApiKey ? 0.5 : 1, transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading && hasApiKey) {
+                      e.currentTarget.style.borderColor = '#FF6B35';
+                      e.currentTarget.style.color = '#CCC';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#2E2E2E';
+                    e.currentTarget.style.color = '#999';
+                  }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {log.map((entry, i) => (
@@ -316,12 +401,7 @@ export function AIAssistantPanel({
             {entry.text}
           </div>
         ))}
-        {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px' }}>
-            <Loader2 style={{ width: 14, height: 14, color: '#FF6B35' }} className="animate-spin" />
-            <span style={{ fontSize: 12, color: '#666' }}>Thinking…</span>
-          </div>
-        )}
+        {loading && <LoadingDots />}
       </div>
 
       {/* Prompt input */}
@@ -333,9 +413,14 @@ export function AIAssistantPanel({
           type="text"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && prompt.trim()) { e.preventDefault(); void run('prompt'); } }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && prompt.trim()) {
+              e.preventDefault();
+              void run('prompt');
+            }
+          }}
           placeholder='e.g. "coffee shop landing page"'
-          disabled={loading}
+          disabled={loading || !hasApiKey}
           style={{
             flex: 1, backgroundColor: '#262626', border: '1px solid #333',
             borderRadius: 8, color: 'white', fontSize: 12, padding: '8px 12px',
@@ -347,13 +432,13 @@ export function AIAssistantPanel({
         <button
           type="button"
           onClick={() => prompt.trim() && void run('prompt')}
-          disabled={loading || !prompt.trim()}
+          disabled={loading || !prompt.trim() || !hasApiKey}
           style={{
             flexShrink: 0, width: 36, height: 36, borderRadius: 8,
             backgroundColor: '#FF6B35', border: 'none', color: 'white',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: loading || !prompt.trim() ? 'not-allowed' : 'pointer',
-            opacity: loading || !prompt.trim() ? 0.5 : 1,
+            cursor: loading || !prompt.trim() || !hasApiKey ? 'not-allowed' : 'pointer',
+            opacity: loading || !prompt.trim() || !hasApiKey ? 0.5 : 1,
           }}
           aria-label="Send prompt"
         >

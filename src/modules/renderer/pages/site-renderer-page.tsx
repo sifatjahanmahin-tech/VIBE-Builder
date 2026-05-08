@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ComponentType, PageLayout, VibeComponent } from '@/types/vibebuilder';
-import { getPublicPageLayout, getPublicSitePages } from '@/lib/blocks-api';
+import { ComponentType, PageLayout, VibeComponent, WebsiteProject } from '@/types/vibebuilder';
+import { getPublicPageLayout, getPublicSitePages, getPublicWebsiteProject } from '@/lib/blocks-api';
 import { HeroSection } from '@/components/vibe/hero-section';
 import { TextBlock } from '@/components/vibe/text-block';
 import { ImageGallery } from '@/components/vibe/image-gallery';
@@ -22,12 +22,6 @@ import type {
   NavbarProps,
   FooterProps,
 } from '@/types/vibebuilder';
-
-// ── localStorage helpers ─────────────────────────────────────────────────────
-
-function lsGet<T>(key: string, fallback: T): T {
-  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback; } catch { return fallback; }
-}
 
 // ---- Component renderer ----
 
@@ -56,7 +50,7 @@ function renderComponent(c: VibeComponent) {
   }
 }
 
-// ---- Site nav (built-in multi-page nav, shown only when no Navbar block) ----
+// ---- Site nav (shown only when no Navbar block) ----
 
 function SiteNav({
   siteName, pages, currentSlug, userId,
@@ -131,6 +125,7 @@ export function SiteRendererPage() {
   const { userId = '', slug = '' } = useParams<{ userId: string; slug: string }>();
 
   const [page, setPage] = useState<PageLayout | null>(null);
+  const [siteDesign, setSiteDesign] = useState<WebsiteProject | null>(null);
   const [navPages, setNavPages] = useState<PageLayout[]>([]);
   const [status, setStatus] = useState<'loading' | 'found' | 'not-found'>('loading');
 
@@ -138,21 +133,25 @@ export function SiteRendererPage() {
     if (!userId || !slug) { setStatus('not-found'); return; }
     setStatus('loading');
     getPublicPageLayout(userId, slug)
-      .then((layout) => {
+      .then(async (layout) => {
         if (!layout) { setStatus('not-found'); return; }
         setPage(layout);
         setStatus('found');
-        getPublicSitePages(userId, layout.siteId).then(setNavPages).catch(() => { /* noop */ });
+
+        // Load site design + other pages in parallel (non-critical)
+        await Promise.allSettled([
+          getPublicWebsiteProject(layout.siteId).then((d) => { if (d) setSiteDesign(d); }),
+          getPublicSitePages(userId, layout.siteId).then(setNavPages),
+        ]);
       })
       .catch(() => setStatus('not-found'));
   }, [userId, slug]);
 
-  // SEO meta tags injection
+  // SEO meta tags — sourced from page fields (stored in Selise)
   useEffect(() => {
     if (!page) return;
-    const seo = lsGet<{ seoTitle?: string; seoDesc?: string; ogImage?: string }>(`vibe:seo:${page.pageId}`, {});
 
-    document.title = seo.seoTitle || page.pageName || slug;
+    document.title = page.seoTitle || page.pageName || slug;
 
     const injected: HTMLElement[] = [];
 
@@ -167,12 +166,12 @@ export function SiteRendererPage() {
       el.setAttribute('content', content);
     }
 
-    if (seo.seoDesc) {
-      setOrCreateMeta('meta[name="description"]', 'name', 'description', seo.seoDesc);
-      setOrCreateMeta('meta[property="og:description"]', 'property', 'og:description', seo.seoDesc);
+    if (page.seoDescription) {
+      setOrCreateMeta('meta[name="description"]', 'name', 'description', page.seoDescription);
+      setOrCreateMeta('meta[property="og:description"]', 'property', 'og:description', page.seoDescription);
     }
-    if (seo.ogImage) {
-      setOrCreateMeta('meta[property="og:image"]', 'property', 'og:image', seo.ogImage);
+    if (page.ogImage) {
+      setOrCreateMeta('meta[property="og:image"]', 'property', 'og:image', page.ogImage);
     }
     setOrCreateMeta('meta[property="og:title"]', 'property', 'og:title', document.title);
 
@@ -182,28 +181,27 @@ export function SiteRendererPage() {
     };
   }, [page, slug]);
 
-  // Global font + custom CSS/JS injection
+  // Font, custom CSS/JS — sourced from Selise (site design + page fields)
   useEffect(() => {
     if (!page) return;
-    const design = lsGet<{ fontFamily?: string }>(`vibe:design:${page.siteId}`, {});
-    const code = lsGet<{ customCSS?: string; customJS?: string }>(`vibe:code:${page.pageId}`, {});
 
-    if (design.fontFamily) document.body.style.fontFamily = design.fontFamily;
+    const fontFamily = siteDesign?.fontFamily;
+    if (fontFamily) document.body.style.fontFamily = fontFamily;
 
     const injected: HTMLElement[] = [];
 
-    if (code.customCSS) {
+    if (page.customCss) {
       const style = document.createElement('style');
       style.setAttribute('data-vibe-custom', '1');
-      style.textContent = code.customCSS;
+      style.textContent = page.customCss;
       document.head.appendChild(style);
       injected.push(style);
     }
 
-    if (code.customJS) {
+    if (page.customJs) {
       const script = document.createElement('script');
       script.setAttribute('data-vibe-custom', '1');
-      script.textContent = code.customJS;
+      script.textContent = page.customJs;
       document.body.appendChild(script);
       injected.push(script);
     }
@@ -212,7 +210,7 @@ export function SiteRendererPage() {
       document.body.style.fontFamily = '';
       injected.forEach((el) => el.remove());
     };
-  }, [page]);
+  }, [page, siteDesign]);
 
   if (status === 'loading') {
     return (
@@ -230,11 +228,10 @@ export function SiteRendererPage() {
 
   return (
     <div className="min-h-screen bg-white scroll-smooth">
-      {/* Only show built-in nav if the page has no Navbar component */}
       {!hasNavbarBlock && (
         <SiteNav siteName={page.pageName} pages={navPages} currentSlug={slug} userId={userId} />
       )}
-      <main className="fade-in">
+      <main>
         {sortedComponents.map(renderComponent)}
       </main>
     </div>

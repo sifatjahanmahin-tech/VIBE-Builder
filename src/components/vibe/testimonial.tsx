@@ -16,6 +16,7 @@ export function Testimonial({ quote, authorName, authorRole, authorImage, bgColo
                 src={authorImage}
                 alt={authorName}
                 className="w-14 h-14 rounded-full object-cover ring-2 ring-white/20"
+                loading="lazy"
               />
             ) : (
               <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl shrink-0">

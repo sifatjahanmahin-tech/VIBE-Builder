@@ -97,17 +97,26 @@ async function main() {
   // Field definitions — "type" key matches what the API expects in both create and add-fields bodies.
   // "Object" is not a valid API type; components stored as String (JSON).
   const wpFields = [
-    { name: "userId",   type: "String",  isArray: false },
-    { name: "siteName", type: "String",  isArray: false },
-    { name: "pages",    type: "String",  isArray: true  },
+    { name: "userId",         type: "String",  isArray: false },
+    { name: "siteName",       type: "String",  isArray: false },
+    { name: "pages",          type: "String",  isArray: true  },
+    { name: "primaryColor",   type: "String",  isArray: false },
+    { name: "secondaryColor", type: "String",  isArray: false },
+    { name: "fontFamily",     type: "String",  isArray: false },
   ];
   const plFields = [
-    { name: "pageId",      type: "String",  isArray: false },
-    { name: "userId",      type: "String",  isArray: false },
-    { name: "siteId",      type: "String",  isArray: false },
-    { name: "slug",        type: "String",  isArray: false },
-    { name: "isPublished", type: "Boolean", isArray: false },
-    { name: "components",  type: "String",  isArray: false },
+    { name: "pageId",         type: "String",  isArray: false },
+    { name: "userId",         type: "String",  isArray: false },
+    { name: "siteId",         type: "String",  isArray: false },
+    { name: "pageName",       type: "String",  isArray: false },
+    { name: "slug",           type: "String",  isArray: false },
+    { name: "isPublished",    type: "Boolean", isArray: false },
+    { name: "components",     type: "String",  isArray: false },
+    { name: "seoTitle",       type: "String",  isArray: false },
+    { name: "seoDescription", type: "String",  isArray: false },
+    { name: "ogImage",        type: "String",  isArray: false },
+    { name: "customCss",      type: "String",  isArray: false },
+    { name: "customJs",       type: "String",  isArray: false },
   ];
 
   // ----------------------------------------------------------
@@ -179,7 +188,7 @@ async function main() {
       body: {
         schemaName:     "PageLayout",
         collectionName: "PageLayouts",
-        schemaType:     2,
+        schemaType:     1,
         fields:         plFields,
       },
       token,

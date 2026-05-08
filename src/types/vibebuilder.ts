@@ -128,6 +128,13 @@ export interface PageLayout {
   slug: string;
   isPublished: boolean;
   components: VibeComponent[];
+  // SEO fields
+  seoTitle?: string;
+  seoDescription?: string;
+  ogImage?: string;
+  // Custom code fields
+  customCss?: string;
+  customJs?: string;
 }
 
 export interface WebsiteProject {
@@ -135,6 +142,10 @@ export interface WebsiteProject {
   siteId: string;
   userId: string;
   siteName: string;
+  // Global design fields
+  primaryColor?: string;
+  secondaryColor?: string;
+  fontFamily?: string;
 }
 
 export type PartialProps<T extends VibeComponentProps> = Partial<T>;

@@ -32,7 +32,6 @@ function formatSlugAsName(slug: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-
 // ---------------------------------------------------------------------------
 // File Upload
 // ---------------------------------------------------------------------------
@@ -90,6 +89,9 @@ export async function getMyWebsites(userId: string): Promise<WebsiteProject[]> {
           ItemId
           userId
           siteName
+          primaryColor
+          secondaryColor
+          fontFamily
         }
       }
     }
@@ -105,12 +107,37 @@ export async function getMyWebsites(userId: string): Promise<WebsiteProject[]> {
       },
     },
   });
-  return (data.getWebsiteProjects?.items ?? []).map((r) => ({
-    _id: r.ItemId,
-    siteId: r.ItemId,
-    userId: r.userId ?? userId,
-    siteName: r.siteName ?? '',
-  }));
+  return (data.getWebsiteProjects?.items ?? []).map((r) => toWebsiteProject(r, userId));
+}
+
+export async function getWebsiteProject(siteId: string): Promise<WebsiteProject | null> {
+  const query = `
+    query GetWebsiteProject($input: DynamicQueryInput) {
+      getWebsiteProjects(input: $input) {
+        items {
+          ItemId
+          userId
+          siteName
+          primaryColor
+          secondaryColor
+          fontFamily
+        }
+      }
+    }
+  `;
+  const data = await graphqlClient.query<{ getWebsiteProjects: { items: any[] } }>({
+    query,
+    variables: {
+      input: {
+        filter: JSON.stringify({ _id: siteId }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 1,
+      },
+    },
+  });
+  const item = data.getWebsiteProjects?.items?.[0];
+  return item ? toWebsiteProject(item, item.userId ?? '') : null;
 }
 
 export async function createWebsite(siteName: string, userId: string): Promise<WebsiteProject> {
@@ -131,6 +158,27 @@ export async function createWebsite(siteName: string, userId: string): Promise<W
   });
   const itemId = data.insertWebsiteProject.itemId;
   return { _id: itemId, siteId: itemId, userId, siteName };
+}
+
+export async function updateSiteDesign(
+  siteId: string,
+  design: { primaryColor?: string; secondaryColor?: string; fontFamily?: string }
+): Promise<void> {
+  const mutation = `
+    mutation UpdateSiteDesign($filter: String!, $input: WebsiteProjectUpdateInput!) {
+      updateWebsiteProject(filter: $filter, input: $input) {
+        totalImpactedData
+        acknowledged
+      }
+    }
+  `;
+  await graphqlClient.mutate({
+    query: mutation,
+    variables: {
+      filter: JSON.stringify({ _id: siteId }),
+      input: design,
+    },
+  });
 }
 
 export async function deleteWebsite(siteId: string): Promise<void> {
@@ -162,20 +210,29 @@ export async function deleteWebsite(siteId: string): Promise<void> {
 // Page Layouts
 // ---------------------------------------------------------------------------
 
+const PAGE_LAYOUT_FIELDS = `
+  ItemId
+  pageId
+  siteId
+  userId
+  pageName
+  slug
+  isPublished
+  components
+  seoTitle
+  seoDescription
+  ogImage
+  customCss
+  customJs
+`;
+
 export async function getSitePages(siteId: string): Promise<PageLayout[]> {
   const query = `
     query GetSitePages($input: DynamicQueryInput) {
       getPageLayouts(input: $input) {
         totalCount
         items {
-          ItemId
-          pageId
-          siteId
-          userId
-          pageName
-          slug
-          isPublished
-          components
+          ${PAGE_LAYOUT_FIELDS}
         }
       }
     }
@@ -244,14 +301,7 @@ export async function getPageLayout(pageId: string): Promise<PageLayout | null> 
     query GetPageLayout($input: DynamicQueryInput) {
       getPageLayouts(input: $input) {
         items {
-          ItemId
-          pageId
-          siteId
-          userId
-          pageName
-          slug
-          isPublished
-          components
+          ${PAGE_LAYOUT_FIELDS}
         }
       }
     }
@@ -271,7 +321,19 @@ export async function getPageLayout(pageId: string): Promise<PageLayout | null> 
   return item ? toPageLayout(item) : null;
 }
 
-export async function savePageLayout(pageId: string, components: VibeComponent[]): Promise<void> {
+export interface PageMeta {
+  seoTitle?: string;
+  seoDescription?: string;
+  ogImage?: string;
+  customCss?: string;
+  customJs?: string;
+}
+
+export async function savePageLayout(
+  pageId: string,
+  components: VibeComponent[],
+  meta?: PageMeta
+): Promise<void> {
   const mutation = `
     mutation SavePageLayout($filter: String!, $input: PageLayoutUpdateInput!) {
       updatePageLayout(filter: $filter, input: $input) {
@@ -280,11 +342,19 @@ export async function savePageLayout(pageId: string, components: VibeComponent[]
       }
     }
   `;
+  const input: Record<string, unknown> = { components: JSON.stringify(components) };
+  if (meta) {
+    if (meta.seoTitle !== undefined) input.seoTitle = meta.seoTitle;
+    if (meta.seoDescription !== undefined) input.seoDescription = meta.seoDescription;
+    if (meta.ogImage !== undefined) input.ogImage = meta.ogImage;
+    if (meta.customCss !== undefined) input.customCss = meta.customCss;
+    if (meta.customJs !== undefined) input.customJs = meta.customJs;
+  }
   await graphqlClient.mutate({
     query: mutation,
     variables: {
       filter: JSON.stringify({ pageId }),
-      input: { components: JSON.stringify(components) },
+      input,
     },
   });
 }
@@ -358,7 +428,7 @@ export async function deletePage(pageId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Shared response mapper
+// Shared response mappers
 // ---------------------------------------------------------------------------
 
 function toPageLayout(r: any): PageLayout {
@@ -373,12 +443,28 @@ function toPageLayout(r: any): PageLayout {
     slug,
     isPublished: r.isPublished ?? false,
     components: parseComponents(r.components),
+    seoTitle: r.seoTitle ?? '',
+    seoDescription: r.seoDescription ?? '',
+    ogImage: r.ogImage ?? '',
+    customCss: r.customCss ?? '',
+    customJs: r.customJs ?? '',
+  };
+}
+
+function toWebsiteProject(r: any, fallbackUserId: string): WebsiteProject {
+  return {
+    _id: r.ItemId,
+    siteId: r.ItemId,
+    userId: r.userId ?? fallbackUserId,
+    siteName: r.siteName ?? '',
+    primaryColor: r.primaryColor ?? '',
+    secondaryColor: r.secondaryColor ?? '',
+    fontFamily: r.fontFamily ?? '',
   };
 }
 
 // ---------------------------------------------------------------------------
-// Renderer queries — use the same authenticated graphqlClient as all other
-// modules (credentials:'include' on the deployed domain handles session auth)
+// Renderer queries (public-facing, uses authenticated graphqlClient)
 // ---------------------------------------------------------------------------
 
 export async function getPublicPageLayout(
@@ -389,14 +475,7 @@ export async function getPublicPageLayout(
     query GetPublicPage($input: DynamicQueryInput) {
       getPageLayouts(input: $input) {
         items {
-          ItemId
-          pageId
-          siteId
-          userId
-          pageName
-          slug
-          isPublished
-          components
+          ${PAGE_LAYOUT_FIELDS}
         }
       }
     }
@@ -444,4 +523,34 @@ export async function getPublicSitePages(userId: string, siteId: string): Promis
     },
   });
   return (data.getPageLayouts?.items ?? []).map(toPageLayout);
+}
+
+export async function getPublicWebsiteProject(siteId: string): Promise<WebsiteProject | null> {
+  const query = `
+    query GetPublicWebsiteProject($input: DynamicQueryInput) {
+      getWebsiteProjects(input: $input) {
+        items {
+          ItemId
+          userId
+          siteName
+          primaryColor
+          secondaryColor
+          fontFamily
+        }
+      }
+    }
+  `;
+  const data = await graphqlClient.query<{ getWebsiteProjects: { items: any[] } }>({
+    query,
+    variables: {
+      input: {
+        filter: JSON.stringify({ _id: siteId }),
+        sort: '{}',
+        pageNo: 1,
+        pageSize: 1,
+      },
+    },
+  });
+  const item = data.getWebsiteProjects?.items?.[0];
+  return item ? toWebsiteProject(item, '') : null;
 }

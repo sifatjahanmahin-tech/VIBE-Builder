@@ -28,6 +28,7 @@ export function HeroSection({
           className="absolute inset-0 w-full h-full object-cover"
           style={{ opacity: overlayOpacity }}
           aria-hidden
+          loading="lazy"
         />
       )}
       {/* Subtle gradient overlay for readability */}

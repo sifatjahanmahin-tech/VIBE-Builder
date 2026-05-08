@@ -3,7 +3,10 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { v4 as uuidv4 } from 'uuid';
 import { COMPONENT_DEFINITIONS } from '@/types/vibebuilder';
 import type { ComponentType, VibeComponent, VibeComponentProps } from '@/types/vibebuilder';
-import { getPageLayout, savePageLayout, publishPage, renamePage } from '@/lib/blocks-api';
+import {
+  getPageLayout, savePageLayout, publishPage, renamePage,
+  getWebsiteProject, updateSiteDesign,
+} from '@/lib/blocks-api';
 import { useToast } from '@/hooks/use-toast';
 
 const AUTO_SAVE_MS = 30_000;
@@ -11,6 +14,8 @@ const MAX_HISTORY = 50;
 
 export function useEditor(pageId: string) {
   const { toast } = useToast();
+
+  // ── Core page state ──────────────────────────────────────────────────────
   const [components, setComponents] = useState<VibeComponent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
@@ -21,7 +26,21 @@ export function useEditor(pageId: string) {
   const [siteId, setSiteId] = useState('');
   const [slug, setSlug] = useState('');
 
-  // Undo / redo
+  // ── SEO fields (page-level) ──────────────────────────────────────────────
+  const [seoTitle, setSeoTitle] = useState('');
+  const [seoDescription, setSeoDescription] = useState('');
+  const [ogImage, setOgImage] = useState('');
+
+  // ── Custom code (page-level) ─────────────────────────────────────────────
+  const [customCss, setCustomCss] = useState('');
+  const [customJs, setCustomJs] = useState('');
+
+  // ── Global design (site-level) ───────────────────────────────────────────
+  const [primaryColor, setPrimaryColor] = useState('#FF6B35');
+  const [secondaryColor, setSecondaryColor] = useState('#1A1A2E');
+  const [fontFamily, setFontFamily] = useState('system-ui, sans-serif');
+
+  // ── Undo / redo ──────────────────────────────────────────────────────────
   const undoStack = useRef<VibeComponent[][]>([]);
   const redoStack = useRef<VibeComponent[][]>([]);
   const [canUndo, setCanUndo] = useState(false);
@@ -36,29 +55,49 @@ export function useEditor(pageId: string) {
     setCanRedo(false);
   }
 
-  // Load page on mount
+  // ── Load page on mount ───────────────────────────────────────────────────
   useEffect(() => {
     if (!pageId) return;
     setIsLoading(true);
+
     getPageLayout(pageId)
-      .then((layout) => {
-        if (layout) {
-          setComponents(layout.components);
-          setIsPublished(layout.isPublished);
-          setPageName(layout.pageName);
-          setSiteId(layout.siteId);
-          setSlug(layout.slug);
+      .then(async (layout) => {
+        if (!layout) return;
+
+        setComponents(layout.components);
+        setIsPublished(layout.isPublished);
+        setPageName(layout.pageName);
+        setSiteId(layout.siteId);
+        setSlug(layout.slug);
+
+        // SEO + custom code
+        setSeoTitle(layout.seoTitle ?? '');
+        setSeoDescription(layout.seoDescription ?? '');
+        setOgImage(layout.ogImage ?? '');
+        setCustomCss(layout.customCss ?? '');
+        setCustomJs(layout.customJs ?? '');
+
+        // Load site design from WebsiteProject
+        try {
+          const site = await getWebsiteProject(layout.siteId);
+          if (site) {
+            if (site.primaryColor) setPrimaryColor(site.primaryColor);
+            if (site.secondaryColor) setSecondaryColor(site.secondaryColor);
+            if (site.fontFamily) setFontFamily(site.fontFamily);
+          }
+        } catch {
+          // site design is non-critical — fall back to defaults
         }
       })
       .finally(() => setIsLoading(false));
   }, [pageId]);
 
-  // Auto-save: debounce 30s after last change
+  // ── Auto-save: debounce 30s after last change ────────────────────────────
   useEffect(() => {
     if (!isDirty) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
-      handleSave();
+      void handleSave();
     }, AUTO_SAVE_MS);
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -70,14 +109,20 @@ export function useEditor(pageId: string) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setIsSaving(true);
     try {
-      await savePageLayout(pageId, components);
+      await savePageLayout(pageId, components, {
+        seoTitle,
+        seoDescription,
+        ogImage,
+        customCss,
+        customJs,
+      });
       setIsDirty(false);
     } catch (err) {
       toast({ title: 'Save failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
-  }, [pageId, components, toast]);
+  }, [pageId, components, seoTitle, seoDescription, ogImage, customCss, customJs, toast]);
 
   const handlePublishToggle = useCallback(async () => {
     const next = !isPublished;
@@ -89,6 +134,36 @@ export function useEditor(pageId: string) {
       toast({ title: 'Failed to update publish status', description: (err as Error).message, variant: 'destructive' });
     }
   }, [pageId, isPublished, toast]);
+
+  // ── Page meta update (marks dirty, saved on next handleSave) ─────────────
+  const updatePageMeta = useCallback((patch: {
+    seoTitle?: string; seoDescription?: string; ogImage?: string;
+    customCss?: string; customJs?: string;
+  }) => {
+    if (patch.seoTitle !== undefined) setSeoTitle(patch.seoTitle);
+    if (patch.seoDescription !== undefined) setSeoDescription(patch.seoDescription);
+    if (patch.ogImage !== undefined) setOgImage(patch.ogImage);
+    if (patch.customCss !== undefined) setCustomCss(patch.customCss);
+    if (patch.customJs !== undefined) setCustomJs(patch.customJs);
+    setIsDirty(true);
+  }, []);
+
+  // ── Site design update (saves immediately to Selise) ────────────────────
+  const handleUpdateSiteDesign = useCallback(async (patch: {
+    primaryColor?: string; secondaryColor?: string; fontFamily?: string;
+  }) => {
+    if (patch.primaryColor !== undefined) setPrimaryColor(patch.primaryColor);
+    if (patch.secondaryColor !== undefined) setSecondaryColor(patch.secondaryColor);
+    if (patch.fontFamily !== undefined) setFontFamily(patch.fontFamily);
+    if (!siteId) return;
+    try {
+      await updateSiteDesign(siteId, patch);
+    } catch (err) {
+      toast({ title: 'Failed to save design', description: (err as Error).message, variant: 'destructive' });
+    }
+  }, [siteId, toast]);
+
+  // ── Component mutations ──────────────────────────────────────────────────
 
   const addComponent = useCallback((type: ComponentType) => {
     const def = COMPONENT_DEFINITIONS.find((d) => d.type === type);
@@ -127,7 +202,6 @@ export function useEditor(pageId: string) {
     []
   );
 
-  // Replace all components at once (used by AI generator) — no history push (too large)
   const setComponentsBatch = useCallback((next: VibeComponent[]) => {
     setComponents((prev) => {
       pushHistory(prev);
@@ -184,30 +258,22 @@ export function useEditor(pageId: string) {
   const selectedComponent = components.find((c) => c.id === selectedId) ?? null;
 
   return {
-    components,
-    selectedId,
-    selectedComponent,
-    isPublished,
-    isDirty,
-    isSaving,
-    isLoading,
-    pageName,
-    siteId,
-    slug,
-    canUndo,
-    canRedo,
-    setSelectedId,
-    setPageName,
-    setSlug,
-    addComponent,
-    removeComponent,
-    updateComponentProps,
-    setComponentsBatch,
-    reorderComponents,
-    handleSave,
-    handlePublishToggle,
-    handleRenamePage,
-    undo,
-    redo,
+    // page state
+    components, selectedId, selectedComponent, isPublished,
+    isDirty, isSaving, isLoading, pageName, siteId, slug,
+    // SEO
+    seoTitle, seoDescription, ogImage,
+    // custom code
+    customCss, customJs,
+    // design
+    primaryColor, secondaryColor, fontFamily,
+    // undo/redo
+    canUndo, canRedo,
+    // setters
+    setSelectedId, setPageName, setSlug,
+    // handlers
+    addComponent, removeComponent, updateComponentProps, setComponentsBatch,
+    reorderComponents, handleSave, handlePublishToggle, handleRenamePage,
+    undo, redo, updatePageMeta, handleUpdateSiteDesign,
   };
 }
