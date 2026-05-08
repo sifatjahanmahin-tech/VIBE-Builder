@@ -1,17 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEditor } from '../hooks/use-editor';
 import { EditorTopbar } from '../components/editor-topbar';
+import type { Viewport } from '../components/editor-topbar';
 import { ComponentPalette } from '../components/component-palette';
 import { EditorCanvas } from '../components/editor-canvas';
 import { PropertyEditor } from '../components/property-editor';
+import { AIAssistantPanel } from '../components/ai-assistant-panel';
 import { deletePage, updatePageSlug } from '@/lib/blocks-api';
-import { useState } from 'react';
 
 export function EditorPage() {
   const { siteId = '', pageId = '' } = useParams<{ siteId: string; pageId: string }>();
   const navigate = useNavigate();
+
   const [previewMode, setPreviewMode] = useState(false);
+  const [viewport, setViewport] = useState<Viewport>('desktop');
+  const [showAI, setShowAI] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const {
     components,
@@ -23,29 +28,43 @@ export function EditorPage() {
     isLoading,
     pageName,
     slug,
+    canUndo,
+    canRedo,
     setSelectedId,
     setPageName,
     setSlug,
     addComponent,
     removeComponent,
     updateComponentProps,
+    setComponentsBatch,
     reorderComponents,
     handleSave,
     handlePublishToggle,
     handleRenamePage,
+    undo,
+    redo,
   } = useEditor(pageId);
 
-  // Ctrl+S to save
+  // Ctrl+S save, Ctrl+Z undo, Ctrl+Y redo
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key === 's') {
         e.preventDefault();
         if (isDirty && !isSaving) handleSave();
+      }
+      if (ctrl && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (ctrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isDirty, isSaving, handleSave]);
+  }, [isDirty, isSaving, handleSave, undo, redo]);
 
   async function handleUpdateSlug(newSlug: string) {
     setSlug(newSlug);
@@ -57,12 +76,43 @@ export function EditorPage() {
     navigate('/vibe-dashboard');
   }
 
+  function handleExport() {
+    const filename = `${slug || 'page'}-export.json`;
+    const json = JSON.stringify(components, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportClick() {
+    importRef.current?.click();
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        if (Array.isArray(parsed)) {
+          setComponentsBatch(parsed);
+        }
+      } catch {
+        // silently ignore invalid JSON
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   if (isLoading) {
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center"
-        style={{ backgroundColor: '#1A1A1A' }}
-      >
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: '#1A1A1A' }}>
         <div className="flex flex-col items-center gap-3">
           <div
             className="w-8 h-8 rounded-full border-2 animate-spin"
@@ -75,10 +125,16 @@ export function EditorPage() {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col overflow-hidden"
-      style={{ backgroundColor: '#1A1A1A' }}
-    >
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden" style={{ backgroundColor: '#1A1A1A' }}>
+      {/* Hidden import file input */}
+      <input
+        ref={importRef}
+        type="file"
+        accept=".json,application/json"
+        style={{ display: 'none' }}
+        onChange={handleImportFile}
+      />
+
       <EditorTopbar
         pageName={pageName}
         slug={slug}
@@ -86,14 +142,24 @@ export function EditorPage() {
         isSaving={isSaving}
         isPublished={isPublished}
         previewMode={previewMode}
+        viewport={viewport}
+        showAI={showAI}
+        canUndo={canUndo}
+        canRedo={canRedo}
         onSave={handleSave}
         onPublishToggle={handlePublishToggle}
         onPreviewToggle={() => setPreviewMode((p) => !p)}
         onRenamePage={handleRenamePage}
         setPageName={setPageName}
+        onViewportChange={setViewport}
+        onAIToggle={() => setShowAI((v) => !v)}
+        onUndo={undo}
+        onRedo={redo}
+        onExport={handleExport}
+        onImportClick={handleImportClick}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
         {!previewMode && (
           <ComponentPalette
             onAdd={addComponent}
@@ -110,6 +176,7 @@ export function EditorPage() {
           components={components}
           selectedId={selectedId}
           previewMode={previewMode}
+          viewport={viewport}
           onSelect={setSelectedId}
           onRemove={removeComponent}
           onReorder={reorderComponents}
@@ -119,6 +186,18 @@ export function EditorPage() {
           <PropertyEditor
             component={selectedComponent}
             onChange={(patch) => selectedId && updateComponentProps(selectedId, patch)}
+          />
+        )}
+
+        {/* AI Assistant Panel — absolute over the right side */}
+        {!previewMode && (
+          <AIAssistantPanel
+            isOpen={showAI}
+            onClose={() => setShowAI(false)}
+            selectedComponent={selectedComponent}
+            components={components}
+            onSetComponents={setComponentsBatch}
+            onUpdateProps={(patch) => selectedId && updateComponentProps(selectedId, patch)}
           />
         )}
       </div>

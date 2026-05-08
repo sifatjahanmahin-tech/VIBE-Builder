@@ -7,6 +7,7 @@ import { getPageLayout, savePageLayout, publishPage, renamePage } from '@/lib/bl
 import { useToast } from '@/hooks/use-toast';
 
 const AUTO_SAVE_MS = 30_000;
+const MAX_HISTORY = 50;
 
 export function useEditor(pageId: string) {
   const { toast } = useToast();
@@ -20,7 +21,20 @@ export function useEditor(pageId: string) {
   const [siteId, setSiteId] = useState('');
   const [slug, setSlug] = useState('');
 
+  // Undo / redo
+  const undoStack = useRef<VibeComponent[][]>([]);
+  const redoStack = useRef<VibeComponent[][]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function pushHistory(snapshot: VibeComponent[]) {
+    undoStack.current = [...undoStack.current.slice(-(MAX_HISTORY - 1)), [...snapshot]];
+    redoStack.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+  }
 
   // Load page on mount
   useEffect(() => {
@@ -79,32 +93,73 @@ export function useEditor(pageId: string) {
   const addComponent = useCallback((type: ComponentType) => {
     const def = COMPONENT_DEFINITIONS.find((d) => d.type === type);
     if (!def) return;
-    const newItem: VibeComponent = {
-      id: uuidv4(),
-      type,
-      order: components.length,
-      props: { ...def.defaultProps },
-    };
-    setComponents((prev) => [...prev, newItem]);
-    setSelectedId(newItem.id);
-    setIsDirty(true);
-  }, [components.length]);
+    setComponents((prev) => {
+      pushHistory(prev);
+      const newItem: VibeComponent = {
+        id: uuidv4(),
+        type,
+        order: prev.length,
+        props: { ...def.defaultProps },
+      };
+      setSelectedId(newItem.id);
+      setIsDirty(true);
+      return [...prev, newItem];
+    });
+  }, []);
 
   const removeComponent = useCallback((id: string) => {
-    setComponents((prev) => prev.filter((c) => c.id !== id));
-    setSelectedId((prev) => (prev === id ? null : prev));
-    setIsDirty(true);
+    setComponents((prev) => {
+      pushHistory(prev);
+      setSelectedId((sel) => (sel === id ? null : sel));
+      setIsDirty(true);
+      return prev.filter((c) => c.id !== id);
+    });
   }, []);
 
   const updateComponentProps = useCallback(
     (id: string, patch: Partial<VibeComponentProps>) => {
-      setComponents((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, props: { ...c.props, ...patch } as VibeComponentProps } : c))
-      );
-      setIsDirty(true);
+      setComponents((prev) => {
+        pushHistory(prev);
+        setIsDirty(true);
+        return prev.map((c) => (c.id === id ? { ...c, props: { ...c.props, ...patch } as VibeComponentProps } : c));
+      });
     },
     []
   );
+
+  // Replace all components at once (used by AI generator) — no history push (too large)
+  const setComponentsBatch = useCallback((next: VibeComponent[]) => {
+    setComponents((prev) => {
+      pushHistory(prev);
+      setIsDirty(true);
+      return next;
+    });
+    setSelectedId(null);
+  }, []);
+
+  const undo = useCallback(() => {
+    const snapshot = undoStack.current.pop();
+    if (!snapshot) return;
+    setComponents((cur) => {
+      redoStack.current = [...redoStack.current, [...cur]];
+      setCanUndo(undoStack.current.length > 0);
+      setCanRedo(true);
+      setIsDirty(true);
+      return snapshot;
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    const snapshot = redoStack.current.pop();
+    if (!snapshot) return;
+    setComponents((cur) => {
+      undoStack.current = [...undoStack.current, [...cur]];
+      setCanUndo(true);
+      setCanRedo(redoStack.current.length > 0);
+      setIsDirty(true);
+      return snapshot;
+    });
+  }, []);
 
   const handleRenamePage = useCallback(async (newName: string) => {
     setPageName(newName);
@@ -117,12 +172,13 @@ export function useEditor(pageId: string) {
 
   const reorderComponents = useCallback((activeId: string, overId: string) => {
     setComponents((prev) => {
+      pushHistory(prev);
       const oldIndex = prev.findIndex((c) => c.id === activeId);
       const newIndex = prev.findIndex((c) => c.id === overId);
       if (oldIndex === -1 || newIndex === -1) return prev;
+      setIsDirty(true);
       return arrayMove(prev, oldIndex, newIndex).map((c, i) => ({ ...c, order: i }));
     });
-    setIsDirty(true);
   }, []);
 
   const selectedComponent = components.find((c) => c.id === selectedId) ?? null;
@@ -138,15 +194,20 @@ export function useEditor(pageId: string) {
     pageName,
     siteId,
     slug,
+    canUndo,
+    canRedo,
     setSelectedId,
     setPageName,
     setSlug,
     addComponent,
     removeComponent,
     updateComponentProps,
+    setComponentsBatch,
     reorderComponents,
     handleSave,
     handlePublishToggle,
     handleRenamePage,
+    undo,
+    redo,
   };
 }

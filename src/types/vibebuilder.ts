@@ -6,6 +6,8 @@ export enum ComponentType {
   Testimonial = 'Testimonial',
   FeaturesGrid = 'FeaturesGrid',
   CTABanner = 'CTABanner',
+  Navbar = 'Navbar',
+  Footer = 'Footer',
 }
 
 export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
@@ -47,6 +49,7 @@ export interface ContactFormProps {
   title: string;
   fields: ContactFormField[];
   submitText: string;
+  webhookUrl?: string;
 }
 
 export interface TestimonialProps {
@@ -77,6 +80,27 @@ export interface CTABannerProps {
   textColor: string;
 }
 
+export interface NavLink {
+  label: string;
+  url: string;
+}
+
+export interface NavbarProps {
+  siteName: string;
+  logoText: string;
+  links: NavLink[];
+  bgColor: string;
+  textColor: string;
+}
+
+export interface FooterProps {
+  companyName: string;
+  copyright: string;
+  links: NavLink[];
+  bgColor: string;
+  textColor: string;
+}
+
 export type VibeComponentProps =
   | HeroSectionProps
   | TextBlockProps
@@ -84,7 +108,9 @@ export type VibeComponentProps =
   | ContactFormProps
   | TestimonialProps
   | FeaturesGridProps
-  | CTABannerProps;
+  | CTABannerProps
+  | NavbarProps
+  | FooterProps;
 
 export interface VibeComponent {
   id: string;
@@ -121,6 +147,37 @@ export interface ComponentDefinition {
 }
 
 export const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
+  {
+    type: ComponentType.Navbar,
+    label: 'Navbar',
+    description: 'Site navigation bar with logo and links',
+    defaultProps: {
+      siteName: 'My Site',
+      logoText: 'M',
+      links: [
+        { label: 'Home', url: '#' },
+        { label: 'About', url: '#about' },
+        { label: 'Contact', url: '#contact' },
+      ],
+      bgColor: '#1a1a1a',
+      textColor: '#ffffff',
+    } satisfies NavbarProps,
+  },
+  {
+    type: ComponentType.Footer,
+    label: 'Footer',
+    description: 'Site footer with links and copyright',
+    defaultProps: {
+      companyName: 'My Company',
+      copyright: `© ${new Date().getFullYear()} My Company. All rights reserved.`,
+      links: [
+        { label: 'Privacy', url: '#' },
+        { label: 'Terms', url: '#' },
+      ],
+      bgColor: '#111111',
+      textColor: '#888888',
+    } satisfies FooterProps,
+  },
   {
     type: ComponentType.Hero,
     label: 'Hero Section',
@@ -168,6 +225,7 @@ export const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         { name: 'message', label: 'Message', type: 'textarea', required: false },
       ],
       submitText: 'Send Message',
+      webhookUrl: '',
     } satisfies ContactFormProps,
   },
   {

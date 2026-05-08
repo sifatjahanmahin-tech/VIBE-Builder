@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Layers, FileText, Settings2, Search,
   LayoutTemplate, Type, Images, Mail, Quote, Zap, Megaphone,
+  Navigation, AlignJustify,
   Plus, Trash2, Loader2,
 } from 'lucide-react';
 import { ComponentType, COMPONENT_DEFINITIONS, PageLayout } from '@/types/vibebuilder';
@@ -20,23 +21,39 @@ const COMP_ICONS: Record<ComponentType, React.ReactNode> = {
   [ComponentType.Testimonial]:  <Quote className="h-5 w-5" />,
   [ComponentType.FeaturesGrid]: <Zap className="h-5 w-5" />,
   [ComponentType.CTABanner]:    <Megaphone className="h-5 w-5" />,
+  [ComponentType.Navbar]:       <Navigation className="h-5 w-5" />,
+  [ComponentType.Footer]:       <AlignJustify className="h-5 w-5" />,
 };
 
 const CATEGORIES: { label: string; types: ComponentType[] }[] = [
-  { label: 'LAYOUT',      types: [ComponentType.Hero, ComponentType.CTABanner] },
+  { label: 'LAYOUT',      types: [ComponentType.Navbar, ComponentType.Hero, ComponentType.CTABanner, ComponentType.Footer] },
   { label: 'CONTENT',     types: [ComponentType.TextBlock, ComponentType.Testimonial, ComponentType.FeaturesGrid] },
   { label: 'MEDIA',       types: [ComponentType.ImageGallery] },
   { label: 'INTERACTIVE', types: [ComponentType.ContactForm] },
 ];
 
-// ── Dark input style helper ──────────────────────────────────────────────────
+// ── Dark input/textarea style ────────────────────────────────────────────────
 
 const darkInput: React.CSSProperties = {
   width: '100%', backgroundColor: '#333', border: '1px solid #444',
   color: 'white', borderRadius: 6, padding: '7px 10px', fontSize: 12, outline: 'none',
 };
 
+const darkTextarea: React.CSSProperties = {
+  ...darkInput, resize: 'vertical', lineHeight: 1.5, fontFamily: 'monospace', fontSize: 11,
+};
+
 type PanelTab = 'elements' | 'pages' | 'settings';
+
+// ── localStorage helpers ─────────────────────────────────────────────────────
+
+function lsGet<T>(key: string, fallback: T): T {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback; } catch { return fallback; }
+}
+
+function lsSet(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* noop */ }
+}
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -61,30 +78,79 @@ export function ComponentPalette({
   const [activeTab, setActiveTab] = useState<PanelTab>('elements');
   const [query, setQuery] = useState('');
 
-  // ── Pages tab state ────────────────────────────────────────────────────────
+  // ── Pages tab ─────────────────────────────────────────────────────────────
   const [pages, setPages] = useState<PageLayout[]>([]);
   const [pagesLoading, setPagesLoading] = useState(false);
   const [showAddPage, setShowAddPage] = useState(false);
   const [addPageLoading, setAddPageLoading] = useState(false);
   const [addPageError, setAddPageError] = useState<string | null>(null);
 
-  // ── Settings tab state ────────────────────────────────────────────────────
+  // ── Settings tab — API fields ─────────────────────────────────────────────
   const [localSlug, setLocalSlug] = useState(slug);
   const [localSeoTitle, setLocalSeoTitle] = useState(pageName);
   const [savingSlug, setSavingSlug] = useState(false);
   const [savingSeoTitle, setSavingSeoTitle] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // ── Settings tab — localStorage SEO ──────────────────────────────────────
+  const [seoDesc, setSeoDesc] = useState('');
+  const [ogImage, setOgImage] = useState('');
+
+  // ── Settings tab — localStorage Design ───────────────────────────────────
+  const [primaryColor, setPrimaryColor] = useState('#FF6B35');
+  const [secondaryColor, setSecondaryColor] = useState('#1A1A2E');
+  const [fontFamily, setFontFamily] = useState('system-ui, sans-serif');
+
+  // ── Settings tab — localStorage Custom Code ───────────────────────────────
+  const [customCSS, setCustomCSS] = useState('');
+  const [customJS, setCustomJS] = useState('');
+
   useEffect(() => { setLocalSlug(slug); }, [slug]);
   useEffect(() => { setLocalSeoTitle(pageName); }, [pageName]);
 
-  // Reload pages whenever the tab becomes active
+  // Load localStorage values when pageId/siteId changes
+  useEffect(() => {
+    if (!pageId) return;
+    const seo = lsGet<{ seoDesc?: string; ogImage?: string }>(`vibe:seo:${pageId}`, {});
+    setSeoDesc(seo.seoDesc ?? '');
+    setOgImage(seo.ogImage ?? '');
+    const code = lsGet<{ customCSS?: string; customJS?: string }>(`vibe:code:${pageId}`, {});
+    setCustomCSS(code.customCSS ?? '');
+    setCustomJS(code.customJS ?? '');
+  }, [pageId]);
+
+  useEffect(() => {
+    if (!siteId) return;
+    const design = lsGet<{ primaryColor?: string; secondaryColor?: string; fontFamily?: string }>(`vibe:design:${siteId}`, {});
+    setPrimaryColor(design.primaryColor ?? '#FF6B35');
+    setSecondaryColor(design.secondaryColor ?? '#1A1A2E');
+    setFontFamily(design.fontFamily ?? 'system-ui, sans-serif');
+  }, [siteId]);
+
+  // ── Persist helpers ───────────────────────────────────────────────────────
+
+  function saveSEO(updates: { seoDesc?: string; ogImage?: string }) {
+    const current = lsGet<Record<string, string>>(`vibe:seo:${pageId}`, {});
+    lsSet(`vibe:seo:${pageId}`, { ...current, ...updates });
+  }
+
+  function saveDesign(updates: { primaryColor?: string; secondaryColor?: string; fontFamily?: string }) {
+    const current = lsGet<Record<string, string>>(`vibe:design:${siteId}`, {});
+    lsSet(`vibe:design:${siteId}`, { ...current, ...updates });
+  }
+
+  function saveCode(updates: { customCSS?: string; customJS?: string }) {
+    const current = lsGet<Record<string, string>>(`vibe:code:${pageId}`, {});
+    lsSet(`vibe:code:${pageId}`, { ...current, ...updates });
+  }
+
+  // Reload pages when tab becomes active
   useEffect(() => {
     if (activeTab !== 'pages' || !siteId) return;
     setPagesLoading(true);
     getSitePages(siteId)
       .then(setPages)
-      .catch(() => { /* ignore fetch errors */ })
+      .catch(() => { /* ignore */ })
       .finally(() => setPagesLoading(false));
   }, [activeTab, siteId]);
 
@@ -109,12 +175,10 @@ export function ComponentPalette({
       await deletePageApi(pid);
       setPages((prev) => prev.filter((p) => p.pageId !== pid));
       if (pid === pageId) navigate('/vibe-dashboard');
-    } catch {
-      // silent — page might already be deleted
-    }
+    } catch { /* silent */ }
   }
 
-  // ── Settings handlers ─────────────────────────────────────────────────────
+  // ── Settings API handlers ─────────────────────────────────────────────────
 
   async function commitSlug() {
     const trimmed = localSlug.trim();
@@ -139,11 +203,6 @@ export function ComponentPalette({
   }
 
   // ── Strip button config ───────────────────────────────────────────────────
-
-  const STRIP_ICONS: { id: PanelTab; icon: React.ReactNode; label: string }[] = [
-    { id: 'elements', icon: <Layers className="h-[18px] w-[18px]" />,   label: 'Elements' },
-    { id: 'pages',    icon: <FileText className="h-[18px] w-[18px]" />, label: 'Pages' },
-  ];
 
   const PANEL_LABEL: Record<PanelTab, string> = {
     elements: 'Elements', pages: 'Pages', settings: 'Settings',
@@ -173,6 +232,28 @@ export function ComponentPalette({
     );
   }
 
+  // ── Color + font field helpers ────────────────────────────────────────────
+
+  function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+    return (
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: 5 }}>
+          {label}
+        </label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+            style={{ width: 32, height: 32, padding: 2, cursor: 'pointer', backgroundColor: '#333', border: '1px solid #444', borderRadius: 6, flexShrink: 0 }}
+          />
+          <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+            style={{ ...darkInput, fontFamily: 'monospace', fontSize: 11 }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -183,19 +264,16 @@ export function ComponentPalette({
         className="flex flex-col items-center pt-2 pb-2 shrink-0"
         style={{ width: 48, backgroundColor: '#1A1A1A', borderRight: '1px solid #2A2A2A' }}
       >
-        {STRIP_ICONS.map(({ id, icon, label }) => stripBtn(id, icon, label))}
+        {stripBtn('elements', <Layers className="h-[18px] w-[18px]" />, 'Elements')}
+        {stripBtn('pages',    <FileText className="h-[18px] w-[18px]" />, 'Pages')}
 
-        {/* Settings pinned to bottom */}
         <div style={{ marginTop: 'auto' }}>
           {stripBtn('settings', <Settings2 className="h-[18px] w-[18px]" />, 'Settings')}
         </div>
       </div>
 
       {/* ── Panel (280px) ── */}
-      <div
-        className="flex flex-col overflow-hidden"
-        style={{ width: 280, backgroundColor: '#262626' }}
-      >
+      <div className="flex flex-col overflow-hidden" style={{ width: 280, backgroundColor: '#262626' }}>
         {/* Header */}
         <div style={{ padding: '12px 12px 0', borderBottom: '1px solid #333', flexShrink: 0 }}>
           <p style={{
@@ -245,10 +323,7 @@ export function ComponentPalette({
         </div>
 
         {/* Content */}
-        <div
-          className="flex-1 overflow-y-auto"
-          style={{ padding: 12, scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}
-        >
+        <div className="flex-1 overflow-y-auto" style={{ padding: 12, scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}>
 
           {/* ── Elements ── */}
           {activeTab === 'elements' && (
@@ -279,8 +354,7 @@ export function ComponentPalette({
                             display: 'flex', flexDirection: 'column', alignItems: 'center',
                             justifyContent: 'center', gap: 6, padding: '10px 6px',
                             backgroundColor: '#333', border: '1px solid #3A3A3A',
-                            borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
-                            minHeight: 76,
+                            borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s', minHeight: 76,
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.backgroundColor = '#3A3A3A';
@@ -291,13 +365,8 @@ export function ComponentPalette({
                             e.currentTarget.style.borderColor = '#3A3A3A';
                           }}
                         >
-                          <span style={{ color: '#CCC', display: 'flex' }}>
-                            {COMP_ICONS[def.type]}
-                          </span>
-                          <span style={{
-                            fontSize: 10, color: '#CCC', textAlign: 'center',
-                            lineHeight: 1.3, fontWeight: 500,
-                          }}>
+                          <span style={{ color: '#CCC', display: 'flex' }}>{COMP_ICONS[def.type]}</span>
+                          <span style={{ fontSize: 10, color: '#CCC', textAlign: 'center', lineHeight: 1.3, fontWeight: 500 }}>
                             {def.label}
                           </span>
                         </button>
@@ -341,8 +410,7 @@ export function ComponentPalette({
                           padding: '8px 10px', borderRadius: 8,
                           backgroundColor: isCurrent ? '#3A3A3A' : 'transparent',
                           border: `1px solid ${isCurrent ? '#FF6B35' : 'transparent'}`,
-                          cursor: isCurrent ? 'default' : 'pointer',
-                          transition: 'all 0.15s',
+                          cursor: isCurrent ? 'default' : 'pointer', transition: 'all 0.15s',
                         }}
                         onMouseEnter={(e) => {
                           if (!isCurrent) {
@@ -356,9 +424,7 @@ export function ComponentPalette({
                             e.currentTarget.style.borderColor = 'transparent';
                           }
                         }}
-                        onClick={() => {
-                          if (!isCurrent) navigate(`/editor/${siteId}/${page.pageId}`);
-                        }}
+                        onClick={() => { if (!isCurrent) navigate(`/editor/${siteId}/${page.pageId}`); }}
                       >
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{
@@ -370,7 +436,6 @@ export function ComponentPalette({
                           </p>
                         </div>
 
-                        {/* Live / Draft badge */}
                         <span style={{
                           fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 10,
                           backgroundColor: page.isPublished ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.06)',
@@ -381,7 +446,6 @@ export function ComponentPalette({
                           {page.isPublished ? 'Live' : 'Draft'}
                         </span>
 
-                        {/* Delete page */}
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); void handleDeleteFromList(page.pageId); }}
@@ -411,10 +475,7 @@ export function ComponentPalette({
 
               {/* URL Slug */}
               <div className="flex flex-col gap-1.5">
-                <label style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                  textTransform: 'uppercase', color: '#666',
-                }}>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>
                   URL Slug
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -427,8 +488,7 @@ export function ComponentPalette({
                     style={{ ...darkInput, fontFamily: 'monospace', fontSize: 11 }}
                   />
                   {savingSlug && (
-                    <Loader2
-                      className="h-3 w-3 animate-spin"
+                    <Loader2 className="h-3 w-3 animate-spin"
                       style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#888' }}
                     />
                   )}
@@ -436,39 +496,146 @@ export function ComponentPalette({
                 <p style={{ fontSize: 10, color: '#555' }}>/site/…/{localSlug || 'slug'}</p>
               </div>
 
-              {/* SEO Title */}
-              <div className="flex flex-col gap-1.5">
-                <label style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                  textTransform: 'uppercase', color: '#666',
-                }}>
-                  SEO Title
-                </label>
-                <div style={{ position: 'relative' }}>
+              {/* ── SEO ─────────────────────────────────────────────────────── */}
+              <div style={{ borderTop: '1px solid #333', paddingTop: 12 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#FF6B35', marginBottom: 10 }}>
+                  SEO
+                </p>
+
+                <div className="flex flex-col gap-1.5" style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>
+                    Page Title
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      value={localSeoTitle}
+                      onChange={(e) => setLocalSeoTitle(e.target.value)}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; void commitSeoTitle(); }}
+                      placeholder="Page title for search engines"
+                      style={darkInput}
+                    />
+                    {savingSeoTitle && (
+                      <Loader2 className="h-3 w-3 animate-spin"
+                        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#888' }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5" style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>
+                    Meta Description
+                  </label>
+                  <textarea
+                    value={seoDesc}
+                    rows={3}
+                    placeholder="Describe this page for search engines…"
+                    onChange={(e) => { setSeoDesc(e.target.value); saveSEO({ seoDesc: e.target.value }); }}
+                    style={darkTextarea}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>
+                    OG Image URL
+                  </label>
                   <input
                     type="text"
-                    value={localSeoTitle}
-                    onChange={(e) => setLocalSeoTitle(e.target.value)}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; void commitSeoTitle(); }}
-                    placeholder="Page title for search engines"
+                    value={ogImage}
+                    placeholder="https://…/og-image.jpg"
+                    onChange={(e) => { setOgImage(e.target.value); saveSEO({ ogImage: e.target.value }); }}
                     style={darkInput}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
                   />
-                  {savingSeoTitle && (
-                    <Loader2
-                      className="h-3 w-3 animate-spin"
-                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#888' }}
-                    />
-                  )}
                 </div>
-                <p style={{ fontSize: 10, color: '#555' }}>Shown in browser tab and search results</p>
+              </div>
+
+              {/* ── Global Design ─────────────────────────────────────────── */}
+              <div style={{ borderTop: '1px solid #333', paddingTop: 12 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#FF6B35', marginBottom: 10 }}>
+                  Global Design
+                </p>
+
+                <ColorField
+                  label="Primary Color"
+                  value={primaryColor}
+                  onChange={(v) => { setPrimaryColor(v); saveDesign({ primaryColor: v }); }}
+                />
+                <ColorField
+                  label="Secondary Color"
+                  value={secondaryColor}
+                  onChange={(v) => { setSecondaryColor(v); saveDesign({ secondaryColor: v }); }}
+                />
+
+                <div className="flex flex-col gap-1.5">
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>
+                    Font Family
+                  </label>
+                  <select
+                    value={fontFamily}
+                    onChange={(e) => { setFontFamily(e.target.value); saveDesign({ fontFamily: e.target.value }); }}
+                    style={{ ...darkInput, cursor: 'pointer' }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+                  >
+                    {[
+                      { value: 'system-ui, sans-serif',   label: 'System UI' },
+                      { value: 'sans-serif',               label: 'System Sans' },
+                      { value: 'Georgia, serif',           label: 'Georgia' },
+                      { value: "'Courier New', monospace", label: 'Monospace' },
+                      { value: "'Arial', sans-serif",      label: 'Arial' },
+                    ].map((o) => (
+                      <option key={o.value} value={o.value} style={{ backgroundColor: '#222' }}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 10, color: '#555' }}>For custom Google Fonts, use Custom CSS below</p>
+                </div>
+              </div>
+
+              {/* ── Custom Code ────────────────────────────────────────────── */}
+              <div style={{ borderTop: '1px solid #333', paddingTop: 12 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#FF6B35', marginBottom: 10 }}>
+                  Custom Code
+                </p>
+
+                <div className="flex flex-col gap-1.5" style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>
+                    Custom CSS
+                  </label>
+                  <textarea
+                    value={customCSS}
+                    rows={5}
+                    placeholder="/* injected into published page */"
+                    onChange={(e) => { setCustomCSS(e.target.value); saveCode({ customCSS: e.target.value }); }}
+                    style={darkTextarea}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>
+                    Custom JS
+                  </label>
+                  <textarea
+                    value={customJS}
+                    rows={5}
+                    placeholder="// injected at end of published page"
+                    onChange={(e) => { setCustomJS(e.target.value); saveCode({ customJS: e.target.value }); }}
+                    style={darkTextarea}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+                  />
+                </div>
               </div>
 
               {/* Danger Zone */}
-              <div style={{
-                borderRadius: 8, border: '1px solid #3A1A1A',
-                backgroundColor: '#180A0A', padding: 12,
-              }}>
+              <div style={{ borderRadius: 8, border: '1px solid #3A1A1A', backgroundColor: '#180A0A', padding: 12 }}>
                 <p style={{
                   fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
                   textTransform: 'uppercase', color: '#ef4444', marginBottom: 8,
@@ -502,11 +669,9 @@ export function ComponentPalette({
               </div>
             </div>
           )}
-
         </div>
       </div>
 
-      {/* Add Page Modal */}
       <AddPageModal
         open={showAddPage}
         onClose={() => { setShowAddPage(false); setAddPageError(null); }}

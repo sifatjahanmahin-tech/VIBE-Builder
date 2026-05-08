@@ -24,6 +24,8 @@ import type {
   TestimonialProps,
   FeaturesGridProps,
   CTABannerProps,
+  NavbarProps,
+  FooterProps,
 } from '@/types/vibebuilder';
 import { HeroSection } from '@/components/vibe/hero-section';
 import { TextBlock } from '@/components/vibe/text-block';
@@ -32,6 +34,9 @@ import { ContactForm } from '@/components/vibe/contact-form';
 import { Testimonial } from '@/components/vibe/testimonial';
 import { FeaturesGrid } from '@/components/vibe/features-grid';
 import { CTABanner } from '@/components/vibe/cta-banner';
+import { Navbar } from '@/components/vibe/navbar';
+import { Footer } from '@/components/vibe/footer';
+import type { Viewport } from './editor-topbar';
 
 // ── Component renderer ──────────────────────────────────────────────────────
 
@@ -51,6 +56,10 @@ function renderVibeComponent(c: VibeComponent): React.ReactNode {
       return <FeaturesGrid {...(c.props as FeaturesGridProps)} />;
     case ComponentType.CTABanner:
       return <CTABanner {...(c.props as CTABannerProps)} />;
+    case ComponentType.Navbar:
+      return <Navbar {...(c.props as NavbarProps)} />;
+    case ComponentType.Footer:
+      return <Footer {...(c.props as FooterProps)} />;
     default:
       return null;
   }
@@ -64,6 +73,14 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   [ComponentType.Testimonial]:  'Testimonial',
   [ComponentType.FeaturesGrid]: 'Features Grid',
   [ComponentType.CTABanner]:    'CTA Banner',
+  [ComponentType.Navbar]:       'Navbar',
+  [ComponentType.Footer]:       'Footer',
+};
+
+const VIEWPORT_MAX: Record<Viewport, number | undefined> = {
+  desktop: 1100,
+  tablet:  768,
+  mobile:  390,
 };
 
 // ── Sortable component wrapper ──────────────────────────────────────────────
@@ -94,21 +111,14 @@ function SortableComponent({ component, isSelected, onSelect, onRemove }: Sortab
       className="group"
       onClick={onSelect}
     >
-      {/* Orange label chip — shown when selected, positioned at top of component */}
+      {/* Orange label chip */}
       {isSelected && (
         <div
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            backgroundColor: '#FF6B35',
-            color: 'white',
-            fontSize: 11,
-            fontWeight: 700,
-            padding: '3px 8px',
-            borderRadius: '0 0 6px 0',
-            zIndex: 30,
-            pointerEvents: 'none',
+            position: 'absolute', top: 0, left: 0,
+            backgroundColor: '#FF6B35', color: 'white',
+            fontSize: 11, fontWeight: 700, padding: '3px 8px',
+            borderRadius: '0 0 6px 0', zIndex: 30, pointerEvents: 'none',
             letterSpacing: '0.03em',
           }}
         >
@@ -118,30 +128,26 @@ function SortableComponent({ component, isSelected, onSelect, onRemove }: Sortab
 
       {/* Orange selection outline */}
       {isSelected && (
-        <div
-          style={{
-            position: 'absolute', inset: 0,
-            outline: '2px solid #FF6B35',
-            outlineOffset: -2,
-            zIndex: 20, pointerEvents: 'none',
-          }}
-        />
+        <div style={{
+          position: 'absolute', inset: 0,
+          outline: '2px solid #FF6B35', outlineOffset: -2,
+          zIndex: 20, pointerEvents: 'none',
+        }} />
       )}
 
-      {/* Hover outline (dimmer) */}
+      {/* Hover outline */}
       {!isSelected && (
         <div
           className="opacity-0 group-hover:opacity-100 transition-opacity"
           style={{
             position: 'absolute', inset: 0,
-            outline: '1px solid rgba(255,107,53,0.35)',
-            outlineOffset: -1,
+            outline: '1px solid rgba(255,107,53,0.35)', outlineOffset: -1,
             zIndex: 20, pointerEvents: 'none',
           }}
         />
       )}
 
-      {/* Drag handle — top-left on hover */}
+      {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
@@ -151,15 +157,14 @@ function SortableComponent({ component, isSelected, onSelect, onRemove }: Sortab
         title="Drag to reorder"
         style={{
           position: 'absolute', top: 8, left: 8, zIndex: 25,
-          backgroundColor: 'rgba(0,0,0,0.55)',
-          color: '#ddd', border: 'none', borderRadius: 4,
-          padding: '3px 5px', fontSize: 14, lineHeight: 1,
+          backgroundColor: 'rgba(0,0,0,0.55)', color: '#ddd',
+          border: 'none', borderRadius: 4, padding: '3px 5px', fontSize: 14, lineHeight: 1,
         }}
       >
         ⠿
       </button>
 
-      {/* Delete button — top-right on hover */}
+      {/* Delete button */}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
@@ -167,15 +172,15 @@ function SortableComponent({ component, isSelected, onSelect, onRemove }: Sortab
         title="Remove block"
         style={{
           position: 'absolute', top: 8, right: 8, zIndex: 25,
-          backgroundColor: 'rgba(239,68,68,0.85)',
-          color: 'white', border: 'none', borderRadius: 4,
-          padding: '3px 7px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+          backgroundColor: 'rgba(239,68,68,0.85)', color: 'white',
+          border: 'none', borderRadius: 4, padding: '3px 7px',
+          fontSize: 11, fontWeight: 700, cursor: 'pointer',
         }}
       >
         ✕
       </button>
 
-      {/* Actual rendered component — pointer-events disabled so clicks reach wrapper */}
+      {/* Rendered component — pointer-events off so clicks reach wrapper */}
       <div style={{ pointerEvents: 'none' }}>
         {renderVibeComponent(component)}
       </div>
@@ -189,18 +194,14 @@ interface EditorCanvasProps {
   components: VibeComponent[];
   selectedId: string | null;
   previewMode: boolean;
+  viewport: Viewport;
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
 }
 
 export function EditorCanvas({
-  components,
-  selectedId,
-  previewMode,
-  onSelect,
-  onRemove,
-  onReorder,
+  components, selectedId, previewMode, viewport, onSelect, onRemove, onReorder,
 }: EditorCanvasProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -215,63 +216,54 @@ export function EditorCanvas({
   }
 
   const sorted = [...components].sort((a, b) => a.order - b.order);
+  const maxWidth = VIEWPORT_MAX[viewport];
 
-  // Preview mode: clean white full-width render
+  // Preview mode: clean full-width render
   if (previewMode) {
     return (
       <div className="flex-1 overflow-y-auto bg-white">
-        {sorted.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-slate-400 text-sm">No blocks added yet</p>
-          </div>
-        ) : (
-          sorted.map((c) => (
-            <div key={c.id}>{renderVibeComponent(c)}</div>
-          ))
-        )}
+        <div style={{ maxWidth, margin: '0 auto' }}>
+          {sorted.length === 0 ? (
+            <div className="flex items-center justify-center h-full" style={{ minHeight: 480 }}>
+              <p className="text-slate-400 text-sm">No blocks added yet</p>
+            </div>
+          ) : (
+            sorted.map((c) => <div key={c.id}>{renderVibeComponent(c)}</div>)
+          )}
+        </div>
       </div>
     );
   }
 
-  // Edit mode: dark bg + rounded canvas container with live components
+  // Edit mode
   return (
     <div
       className="flex-1 overflow-y-auto"
       style={{
         backgroundColor: '#1A1A1A',
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#333 transparent',
+        scrollbarWidth: 'thin', scrollbarColor: '#333 transparent',
       }}
-      onClick={(e) => {
-        // Click on dark outer area deselects
-        if (e.target === e.currentTarget) onSelect('');
-      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onSelect(''); }}
     >
       <div style={{ padding: '40px 48px 80px' }}>
-        {/* Browser-frame canvas container */}
         <div
           style={{
-            maxWidth: 1100,
+            maxWidth,
             margin: '0 auto',
             borderRadius: 12,
             overflow: 'hidden',
             boxShadow: '0 0 0 1px #333333, 0 24px 64px rgba(0,0,0,0.55)',
             backgroundColor: 'white',
             minHeight: components.length === 0 ? 480 : undefined,
+            transition: 'max-width 0.25s ease',
           }}
         >
           {components.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center h-full gap-4"
-              style={{ minHeight: 480 }}
-            >
-              <div
-                style={{
-                  width: 56, height: 56, borderRadius: '50%',
-                  backgroundColor: '#f1f5f9',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
+            <div className="flex flex-col items-center justify-center h-full gap-4" style={{ minHeight: 480 }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%', backgroundColor: '#f1f5f9',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
                 <Plus style={{ width: 24, height: 24, color: '#94a3b8' }} />
               </div>
               <div style={{ textAlign: 'center' }}>
@@ -282,15 +274,8 @@ export function EditorCanvas({
               </div>
             </div>
           ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={sorted.map((c) => c.id)}
-                strategy={verticalListSortingStrategy}
-              >
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={sorted.map((c) => c.id)} strategy={verticalListSortingStrategy}>
                 {sorted.map((component) => (
                   <SortableComponent
                     key={component.id}
@@ -305,12 +290,9 @@ export function EditorCanvas({
           )}
         </div>
 
-        {/* Add block hint below */}
         {components.length > 0 && (
           <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <span style={{ fontSize: 11, color: '#444' }}>
-              Click a block in the left panel to add it below
-            </span>
+            <span style={{ fontSize: 11, color: '#444' }}>Click a block in the left panel to add it below</span>
           </div>
         )}
       </div>

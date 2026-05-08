@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Cloud, ExternalLink, Eye, EyeOff, Loader2, Monitor, Smartphone, Tablet } from 'lucide-react';
+import {
+  Cloud, Download, ExternalLink, Eye, EyeOff, Loader2,
+  Monitor, RotateCcw, RotateCw, Smartphone, Sparkles, Tablet, Upload,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/state/store/auth';
+
+export type Viewport = 'desktop' | 'tablet' | 'mobile';
 
 interface EditorTopbarProps {
   pageName: string;
@@ -10,31 +15,31 @@ interface EditorTopbarProps {
   isSaving: boolean;
   isPublished: boolean;
   previewMode: boolean;
+  viewport: Viewport;
+  showAI: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   onSave: () => void;
   onPublishToggle: () => void;
   onPreviewToggle: () => void;
   onRenamePage: (name: string) => void;
   setPageName: (name: string) => void;
+  onViewportChange: (v: Viewport) => void;
+  onAIToggle: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onExport: () => void;
+  onImportClick: () => void;
 }
 
-type Viewport = 'desktop' | 'tablet' | 'mobile';
-
 export function EditorTopbar({
-  pageName,
-  slug,
-  isDirty,
-  isSaving,
-  isPublished,
-  previewMode,
-  onSave,
-  onPublishToggle,
-  onPreviewToggle,
-  onRenamePage,
-  setPageName,
+  pageName, slug, isDirty, isSaving, isPublished, previewMode,
+  viewport, showAI, canUndo, canRedo,
+  onSave, onPublishToggle, onPreviewToggle, onRenamePage, setPageName,
+  onViewportChange, onAIToggle, onUndo, onRedo, onExport, onImportClick,
 }: EditorTopbarProps) {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.itemId ?? '');
-  const [viewport, setViewport] = useState<Viewport>('desktop');
   const [editingName, setEditingName] = useState(false);
   const [localName, setLocalName] = useState(pageName);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,9 +76,38 @@ export function EditorTopbar({
     { id: 'mobile',  icon: <Smartphone className="h-[15px] w-[15px]" /> },
   ];
 
+  function iconBtn(
+    label: string,
+    icon: React.ReactNode,
+    onClick: () => void,
+    disabled = false,
+    active = false,
+  ) {
+    return (
+      <button
+        type="button"
+        title={label}
+        onClick={onClick}
+        disabled={disabled}
+        style={{
+          width: 32, height: 32, borderRadius: 6,
+          backgroundColor: active ? '#FF6B3520' : 'transparent',
+          border: active ? '1px solid #FF6B3550' : '1px solid transparent',
+          color: disabled ? '#444' : active ? '#FF6B35' : '#888',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: disabled ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+        }}
+        onMouseEnter={(e) => { if (!disabled && !active) e.currentTarget.style.color = '#CCC'; }}
+        onMouseLeave={(e) => { if (!disabled && !active) e.currentTarget.style.color = '#888'; }}
+      >
+        {icon}
+      </button>
+    );
+  }
+
   return (
     <header
-      className="flex items-center px-3 gap-3 shrink-0 z-20"
+      className="flex items-center px-3 gap-2 shrink-0 z-20"
       style={{ height: 56, backgroundColor: '#1A1A1A', borderBottom: '1px solid #2A2A2A' }}
     >
       {/* Orange logo */}
@@ -101,11 +135,8 @@ export function EditorTopbar({
             style={{
               background: 'transparent',
               borderBottom: '1px solid #FF6B35',
-              color: 'white',
-              fontSize: 14,
-              fontWeight: 600,
-              outline: 'none',
-              width: 160,
+              color: 'white', fontSize: 14, fontWeight: 600,
+              outline: 'none', width: 160,
             }}
           />
         ) : (
@@ -116,37 +147,38 @@ export function EditorTopbar({
             style={{
               color: 'white', fontSize: 14, fontWeight: 600,
               background: 'none', border: 'none', cursor: 'pointer',
-              maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}
           >
             {pageName || 'Untitled Page'}
           </button>
         )}
 
-        {/* Save status */}
         <div className="flex items-center gap-1">
-          {saveStatus === 'saving' ? (
-            <Loader2 style={{ width: 12, height: 12, color: '#888' }} className="animate-spin" />
-          ) : (
-            <Cloud style={{ width: 12, height: 12, color: '#888' }} />
-          )}
+          {saveStatus === 'saving'
+            ? <Loader2 style={{ width: 12, height: 12, color: '#888' }} className="animate-spin" />
+            : <Cloud style={{ width: 12, height: 12, color: '#888' }} />
+          }
           <span style={{ fontSize: 11, color: '#888' }}>
             {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Unsaved'}
           </span>
         </div>
       </div>
 
+      <div style={{ width: 1, height: 20, backgroundColor: '#333' }} />
+
+      {/* Undo / Redo */}
+      {iconBtn('Undo (Ctrl+Z)', <RotateCcw style={{ width: 14, height: 14 }} />, onUndo, !canUndo)}
+      {iconBtn('Redo (Ctrl+Y)', <RotateCw  style={{ width: 14, height: 14 }} />, onRedo, !canRedo)}
+
       {/* Center: viewport toggles */}
       <div className="flex-1 flex justify-center">
-        <div
-          className="flex items-center gap-0.5 p-1 rounded-lg"
-          style={{ backgroundColor: '#262626' }}
-        >
+        <div className="flex items-center gap-0.5 p-1 rounded-lg" style={{ backgroundColor: '#262626' }}>
           {VIEWPORTS.map(({ id, icon }) => (
             <button
               key={id}
               type="button"
-              onClick={() => setViewport(id)}
+              onClick={() => onViewportChange(id)}
               title={id.charAt(0).toUpperCase() + id.slice(1)}
               style={{
                 width: 32, height: 32, borderRadius: 6,
@@ -166,7 +198,18 @@ export function EditorTopbar({
       </div>
 
       {/* Right cluster */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
+        {/* AI toggle */}
+        {iconBtn('AI Assistant', <Sparkles style={{ width: 14, height: 14 }} />, onAIToggle, false, showAI)}
+
+        {/* Export */}
+        {iconBtn('Export page JSON', <Download style={{ width: 14, height: 14 }} />, onExport)}
+
+        {/* Import */}
+        {iconBtn('Import page JSON', <Upload style={{ width: 14, height: 14 }} />, onImportClick)}
+
+        <div style={{ width: 1, height: 20, backgroundColor: '#333' }} />
+
         {/* Preview button */}
         <button
           type="button"
@@ -200,10 +243,7 @@ export function EditorTopbar({
             backgroundColor: 'transparent', cursor: 'pointer', transition: 'all 0.15s',
           }}
         >
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%',
-            backgroundColor: isPublished ? '#10b981' : '#555',
-          }} />
+          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: isPublished ? '#10b981' : '#555' }} />
           {isPublished ? 'Published' : 'Draft'}
         </button>
 

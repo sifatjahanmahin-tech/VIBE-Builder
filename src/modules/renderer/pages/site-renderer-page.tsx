@@ -9,6 +9,8 @@ import { ContactForm } from '@/components/vibe/contact-form';
 import { Testimonial } from '@/components/vibe/testimonial';
 import { FeaturesGrid } from '@/components/vibe/features-grid';
 import { CTABanner } from '@/components/vibe/cta-banner';
+import { Navbar } from '@/components/vibe/navbar';
+import { Footer } from '@/components/vibe/footer';
 import type {
   HeroSectionProps,
   TextBlockProps,
@@ -17,7 +19,15 @@ import type {
   TestimonialProps,
   FeaturesGridProps,
   CTABannerProps,
+  NavbarProps,
+  FooterProps,
 } from '@/types/vibebuilder';
+
+// ── localStorage helpers ─────────────────────────────────────────────────────
+
+function lsGet<T>(key: string, fallback: T): T {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback; } catch { return fallback; }
+}
 
 // ---- Component renderer ----
 
@@ -37,18 +47,19 @@ function renderComponent(c: VibeComponent) {
       return <FeaturesGrid key={c.id} {...(c.props as FeaturesGridProps)} />;
     case ComponentType.CTABanner:
       return <CTABanner key={c.id} {...(c.props as CTABannerProps)} />;
+    case ComponentType.Navbar:
+      return <Navbar key={c.id} {...(c.props as NavbarProps)} />;
+    case ComponentType.Footer:
+      return <Footer key={c.id} {...(c.props as FooterProps)} />;
     default:
       return null;
   }
 }
 
-// ---- Site nav ----
+// ---- Site nav (built-in multi-page nav, shown only when no Navbar block) ----
 
 function SiteNav({
-  siteName,
-  pages,
-  currentSlug,
-  userId,
+  siteName, pages, currentSlug, userId,
 }: {
   siteName: string;
   pages: PageLayout[];
@@ -124,32 +135,84 @@ export function SiteRendererPage() {
   const [status, setStatus] = useState<'loading' | 'found' | 'not-found'>('loading');
 
   useEffect(() => {
-    if (!userId || !slug) {
-      setStatus('not-found');
-      return;
-    }
-
+    if (!userId || !slug) { setStatus('not-found'); return; }
     setStatus('loading');
     getPublicPageLayout(userId, slug)
       .then((layout) => {
-        if (!layout) {
-          setStatus('not-found');
-          return;
-        }
+        if (!layout) { setStatus('not-found'); return; }
         setPage(layout);
         setStatus('found');
-        // Set browser tab title
-        document.title = layout.pageName || slug;
-        // Load nav pages in background
         getPublicSitePages(userId, layout.siteId).then(setNavPages).catch(() => { /* noop */ });
       })
       .catch(() => setStatus('not-found'));
   }, [userId, slug]);
 
-  // Reset title on unmount
+  // SEO meta tags injection
   useEffect(() => {
-    return () => { document.title = 'VibeBuilder'; };
-  }, []);
+    if (!page) return;
+    const seo = lsGet<{ seoTitle?: string; seoDesc?: string; ogImage?: string }>(`vibe:seo:${page.pageId}`, {});
+
+    document.title = seo.seoTitle || page.pageName || slug;
+
+    const injected: HTMLElement[] = [];
+
+    function setOrCreateMeta(selector: string, attr: string, attrVal: string, content: string) {
+      let el = document.querySelector<HTMLMetaElement>(selector);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, attrVal);
+        document.head.appendChild(el);
+        injected.push(el);
+      }
+      el.setAttribute('content', content);
+    }
+
+    if (seo.seoDesc) {
+      setOrCreateMeta('meta[name="description"]', 'name', 'description', seo.seoDesc);
+      setOrCreateMeta('meta[property="og:description"]', 'property', 'og:description', seo.seoDesc);
+    }
+    if (seo.ogImage) {
+      setOrCreateMeta('meta[property="og:image"]', 'property', 'og:image', seo.ogImage);
+    }
+    setOrCreateMeta('meta[property="og:title"]', 'property', 'og:title', document.title);
+
+    return () => {
+      document.title = 'VibeBuilder';
+      injected.forEach((el) => el.remove());
+    };
+  }, [page, slug]);
+
+  // Global font + custom CSS/JS injection
+  useEffect(() => {
+    if (!page) return;
+    const design = lsGet<{ fontFamily?: string }>(`vibe:design:${page.siteId}`, {});
+    const code = lsGet<{ customCSS?: string; customJS?: string }>(`vibe:code:${page.pageId}`, {});
+
+    if (design.fontFamily) document.body.style.fontFamily = design.fontFamily;
+
+    const injected: HTMLElement[] = [];
+
+    if (code.customCSS) {
+      const style = document.createElement('style');
+      style.setAttribute('data-vibe-custom', '1');
+      style.textContent = code.customCSS;
+      document.head.appendChild(style);
+      injected.push(style);
+    }
+
+    if (code.customJS) {
+      const script = document.createElement('script');
+      script.setAttribute('data-vibe-custom', '1');
+      script.textContent = code.customJS;
+      document.body.appendChild(script);
+      injected.push(script);
+    }
+
+    return () => {
+      document.body.style.fontFamily = '';
+      injected.forEach((el) => el.remove());
+    };
+  }, [page]);
 
   if (status === 'loading') {
     return (
@@ -160,20 +223,17 @@ export function SiteRendererPage() {
     );
   }
 
-  if (status === 'not-found' || !page) {
-    return <NotFound />;
-  }
+  if (status === 'not-found' || !page) return <NotFound />;
 
   const sortedComponents = [...page.components].sort((a, b) => a.order - b.order);
+  const hasNavbarBlock = sortedComponents.some((c) => c.type === ComponentType.Navbar);
 
   return (
     <div className="min-h-screen bg-white scroll-smooth">
-      <SiteNav
-        siteName={page.pageName}
-        pages={navPages}
-        currentSlug={slug}
-        userId={userId}
-      />
+      {/* Only show built-in nav if the page has no Navbar component */}
+      {!hasNavbarBlock && (
+        <SiteNav siteName={page.pageName} pages={navPages} currentSlug={slug} userId={userId} />
+      )}
       <main className="fade-in">
         {sortedComponents.map(renderComponent)}
       </main>
