@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, AlertTriangle, RefreshCw, Search } from 'lucide-react';
 import { useMyWebsites, useCreateWebsite } from '../hooks/use-websites';
 import { WebsiteCard } from '../components/website-card';
 import { CreateWebsiteModal } from '../components/create-website-modal';
@@ -45,8 +45,15 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 export function VibeDashboardPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const { data: websites = [], isLoading, isError, error, refetch } = useMyWebsites();
   const createMut = useCreateWebsite();
+
+  const filteredSites = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return websites;
+    return websites.filter((s) => s.siteName?.toLowerCase().includes(q));
+  }, [websites, search]);
 
   function handleCreate(name: string) {
     createMut.mutate(name, {
@@ -79,14 +86,16 @@ export function VibeDashboardPage() {
 
       <div className="max-w-6xl mx-auto w-full px-6 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-white">My Websites</h1>
-            <p className="text-sm mt-1" style={{ color: '#666' }}>
-              {websites.length > 0
-                ? `${websites.length} website${websites.length !== 1 ? 's' : ''} — click a page to edit`
-                : 'Build and publish websites with drag-and-drop ease'}
-            </p>
+            {!isLoading && (
+              <p className="text-sm mt-1" style={{ color: '#666' }}>
+                {websites.length > 0
+                  ? `${websites.length} site${websites.length !== 1 ? 's' : ''} total`
+                  : 'Build and publish websites with drag-and-drop ease'}
+              </p>
+            )}
           </div>
 
           <button
@@ -99,6 +108,30 @@ export function VibeDashboardPage() {
             New Website
           </button>
         </div>
+
+        {/* Search bar (only when there are sites) */}
+        {!isLoading && websites.length > 0 && (
+          <div style={{ position: 'relative', marginBottom: 20, maxWidth: 320 }}>
+            <Search style={{
+              position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+              width: 14, height: 14, color: '#555', pointerEvents: 'none',
+            }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search websites…"
+              style={{
+                width: '100%', paddingLeft: 32, paddingRight: 12,
+                paddingTop: 8, paddingBottom: 8, borderRadius: 8, boxSizing: 'border-box',
+                backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A',
+                color: 'white', fontSize: 13, outline: 'none',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+            />
+          </div>
+        )}
 
         {/* Content */}
         {isLoading ? (
@@ -160,9 +193,13 @@ export function VibeDashboardPage() {
           </div>
         ) : websites.length === 0 ? (
           <EmptyState onCreate={() => setCreateOpen(true)} />
+        ) : filteredSites.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '64px 0', color: '#555' }}>
+            <p style={{ fontSize: 14 }}>No websites match &ldquo;{search}&rdquo;</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {websites.map((site) => (
+            {filteredSites.map((site) => (
               <WebsiteCard key={site.siteId} site={site} />
             ))}
           </div>

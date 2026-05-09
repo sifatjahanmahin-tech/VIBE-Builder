@@ -14,7 +14,7 @@ async function callGemini(systemPrompt: string, userMessage: string): Promise<st
   if (!apiKey) throw new Error('Gemini API key is not configured');
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,18 +70,16 @@ Rules:
 5. Return ONLY the JSON array`;
 
 const COPY_SYSTEM = `You are a professional copywriter. Rewrite the text content of a website component.
-Return ONLY a JSON object with the same keys as the input but with improved copy.
-Keep the same structure, only change text values. No explanation.`;
+Return ONLY a JSON object with improved text props — same keys as the input, only text values changed. No markdown, no explanation.`;
 
-const PALETTE_SYSTEM = `Generate a professional color palette for a website.
-Return ONLY this JSON object (no other text):
-{"primary":"#hex","secondary":"#hex","accent":"#hex","bg":"#hex","text":"#hex"}
-All values must be valid CSS hex colors.`;
+const PALETTE_SYSTEM = `You are a designer. Return ONLY a JSON object with these exact keys:
+{"primaryColor":"#hex","secondaryColor":"#hex","bgColor":"#hex","textColor":"#hex","accentColor":"#hex"}
+All values must be valid hex colors. No explanation, no markdown.`;
 
 const IMPROVE_SYSTEM = `You are a professional web copywriter and UX expert. Improve the website page components.
-Return ONLY the improved JSON array with the same structure as the input.
+Return ONLY the improved JSON array with the same structure as the input. No explanation, no markdown fences.
 Improvements: better headings, more compelling copy, ensure all sections are filled, fix empty fields.
-Keep the same component types and structure. Return ONLY the JSON array.`;
+Keep the same component types, ids, and order. Return ONLY the JSON array.`;
 
 // ── Helper: extract JSON from AI response ─────────────────────────────────────
 
@@ -210,6 +208,7 @@ export function AIAssistantPanel({
 
     try {
       const raw = await callGemini(systemMsg, userMsg);
+      console.log('[AI raw response]', raw);
 
       if (action === 'copy') {
         const parsed = extractJSON(raw) as Partial<VibeComponentProps>;
@@ -219,12 +218,12 @@ export function AIAssistantPanel({
         const palette = extractJSON(raw) as Record<string, string>;
         const updated = components.map((c) => {
           const props = { ...c.props } as Record<string, unknown>;
-          if ('bgColor' in props) props.bgColor = palette.bg ?? palette.secondary ?? props.bgColor;
-          if ('textColor' in props) props.textColor = palette.text ?? props.textColor;
+          if ('bgColor' in props) props.bgColor = palette.bgColor ?? palette.secondaryColor ?? props.bgColor;
+          if ('textColor' in props) props.textColor = palette.textColor ?? props.textColor;
           return { ...c, props: props as unknown as VibeComponentProps };
         });
         onSetComponents(updated);
-        addLog({ role: 'ai', text: `Palette applied: ${Object.values(palette).join(', ')}` });
+        addLog({ role: 'ai', text: `Palette applied — primary: ${palette.primaryColor ?? '?'}, bg: ${palette.bgColor ?? '?'}` });
       } else {
         const parsed = extractJSON(raw);
         const newComponents = normalizeComponents(parsed);
