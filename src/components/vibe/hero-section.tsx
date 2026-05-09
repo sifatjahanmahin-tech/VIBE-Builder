@@ -20,7 +20,7 @@ export function HeroSection({
     : { backgroundColor: bgColor };
 
   return (
-    <section className="relative w-full min-h-[480px] flex items-center overflow-hidden" style={bgStyle}>
+    <section className="relative w-full min-h-[500px] flex items-center overflow-hidden" style={bgStyle}>
       {imageUrl && (
         <img
           src={imageUrl}

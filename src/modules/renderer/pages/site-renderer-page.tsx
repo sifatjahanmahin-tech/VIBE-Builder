@@ -263,6 +263,22 @@ export function SiteRendererPage() {
       <main className="vibe-page-fadein">
         {sortedComponents.map(renderComponent)}
       </main>
+      {/* Built-with credit */}
+      <div style={{
+        textAlign: 'center', padding: '12px 16px',
+        borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb',
+        fontSize: 12, color: '#9ca3af',
+      }}>
+        Built with{' '}
+        <a
+          href="/"
+          style={{ color: '#FF6B35', fontWeight: 600, textDecoration: 'none' }}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          VibeBuilder
+        </a>
+      </div>
     </div>
   );
 }
