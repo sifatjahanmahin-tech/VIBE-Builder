@@ -70,14 +70,12 @@ export function useEditor(pageId: string) {
         setSiteId(layout.siteId);
         setSlug(layout.slug);
 
-        // SEO + custom code
         setSeoTitle(layout.seoTitle ?? '');
         setSeoDescription(layout.seoDescription ?? '');
         setOgImage(layout.ogImage ?? '');
         setCustomCss(layout.customCss ?? '');
         setCustomJs(layout.customJs ?? '');
 
-        // Load site design from WebsiteProject
         try {
           const site = await getWebsiteProject(layout.siteId);
           if (site) {
@@ -92,7 +90,7 @@ export function useEditor(pageId: string) {
       .finally(() => setIsLoading(false));
   }, [pageId]);
 
-  // ── Auto-save: debounce 30s after last change ────────────────────────────
+  // ── Auto-save ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isDirty) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -110,13 +108,10 @@ export function useEditor(pageId: string) {
     setIsSaving(true);
     try {
       await savePageLayout(pageId, components, {
-        seoTitle,
-        seoDescription,
-        ogImage,
-        customCss,
-        customJs,
+        seoTitle, seoDescription, ogImage, customCss, customJs,
       });
       setIsDirty(false);
+      toast({ title: 'Saved', description: 'Page saved successfully.' });
     } catch (err) {
       toast({ title: 'Save failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
@@ -129,13 +124,16 @@ export function useEditor(pageId: string) {
     setIsPublished(next);
     try {
       await publishPage(pageId, next);
+      toast({
+        title: next ? 'Page published!' : 'Page unpublished',
+        description: next ? 'Your page is now live.' : 'Your page is now in draft mode.',
+      });
     } catch (err) {
       setIsPublished(!next);
       toast({ title: 'Failed to update publish status', description: (err as Error).message, variant: 'destructive' });
     }
   }, [pageId, isPublished, toast]);
 
-  // ── Page meta update (marks dirty, saved on next handleSave) ─────────────
   const updatePageMeta = useCallback((patch: {
     seoTitle?: string; seoDescription?: string; ogImage?: string;
     customCss?: string; customJs?: string;
@@ -148,7 +146,6 @@ export function useEditor(pageId: string) {
     setIsDirty(true);
   }, []);
 
-  // ── Site design update (saves immediately to Selise) ────────────────────
   const handleUpdateSiteDesign = useCallback(async (patch: {
     primaryColor?: string; secondaryColor?: string; fontFamily?: string;
   }) => {
@@ -171,9 +168,7 @@ export function useEditor(pageId: string) {
     setComponents((prev) => {
       pushHistory(prev);
       const newItem: VibeComponent = {
-        id: uuidv4(),
-        type,
-        order: prev.length,
+        id: uuidv4(), type, order: prev.length,
         props: { ...def.defaultProps },
       };
       setSelectedId(newItem.id);
@@ -188,6 +183,29 @@ export function useEditor(pageId: string) {
       setSelectedId((sel) => (sel === id ? null : sel));
       setIsDirty(true);
       return prev.filter((c) => c.id !== id);
+    });
+  }, []);
+
+  const duplicateComponent = useCallback((id: string) => {
+    setComponents((prev) => {
+      const idx = prev.findIndex((c) => c.id === id);
+      if (idx === -1) return prev;
+      pushHistory(prev);
+      const original = prev[idx];
+      const clone: VibeComponent = {
+        ...original,
+        id: uuidv4(),
+        order: idx + 1,
+        props: JSON.parse(JSON.stringify(original.props)) as VibeComponent['props'],
+      };
+      const next = [
+        ...prev.slice(0, idx + 1),
+        clone,
+        ...prev.slice(idx + 1),
+      ].map((c, i) => ({ ...c, order: i }));
+      setSelectedId(clone.id);
+      setIsDirty(true);
+      return next;
     });
   }, []);
 
@@ -258,21 +276,14 @@ export function useEditor(pageId: string) {
   const selectedComponent = components.find((c) => c.id === selectedId) ?? null;
 
   return {
-    // page state
     components, selectedId, selectedComponent, isPublished,
     isDirty, isSaving, isLoading, pageName, siteId, slug,
-    // SEO
     seoTitle, seoDescription, ogImage,
-    // custom code
     customCss, customJs,
-    // design
     primaryColor, secondaryColor, fontFamily,
-    // undo/redo
     canUndo, canRedo,
-    // setters
     setSelectedId, setPageName, setSlug,
-    // handlers
-    addComponent, removeComponent, updateComponentProps, setComponentsBatch,
+    addComponent, removeComponent, duplicateComponent, updateComponentProps, setComponentsBatch,
     reorderComponents, handleSave, handlePublishToggle, handleRenamePage,
     undo, redo, updatePageMeta, handleUpdateSiteDesign,
   };

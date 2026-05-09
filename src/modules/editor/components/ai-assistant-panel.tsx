@@ -3,35 +3,34 @@ import { v4 as uuidv4 } from 'uuid';
 import { X, Sparkles, Send, Wand2, Palette, FileText, Zap, AlertCircle } from 'lucide-react';
 import type { VibeComponent, VibeComponentProps } from '@/types/vibebuilder';
 
-// ── Anthropic API call ───────────────────────────────────────────────────────
+// ── Gemini API call ──────────────────────────────────────────────────────────
 
-async function callClaude(system: string, userMsg: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined ?? '';
-  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY is not set. Add it to your .env file.');
+async function callGemini(systemPrompt: string, userMessage: string): Promise<string> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined ?? '';
+  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY is not set');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-allow-browser': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      system,
-      messages: [{ role: 'user', content: userMsg }],
-    }),
-  });
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ parts: [{ text: userMessage }] }],
+      }),
+    }
+  );
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: { message: response.statusText } }));
-    throw new Error((err as any).error?.message ?? `API error ${response.status}`);
+    const err = await response.json().catch(() => ({}));
+    const msg = (err as any)?.error?.message ?? `Gemini API error ${response.status}`;
+    throw new Error(msg);
   }
 
-  const data = await response.json() as { content: { text: string }[] };
-  return data.content[0]?.text ?? '';
+  const data = await response.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (!text) throw new Error('Gemini returned an empty response. Try again.');
+  return text;
 }
 
 // ── System prompts ────────────────────────────────────────────────────────────
@@ -80,7 +79,7 @@ Return ONLY the improved JSON array with the same structure as the input.
 Improvements: better headings, more compelling copy, ensure all sections are filled, fix empty fields.
 Keep the same component types and structure. Return ONLY the JSON array.`;
 
-// ── Helper: extract JSON from Claude response ─────────────────────────────────
+// ── Helper: extract JSON from AI response ─────────────────────────────────────
 
 function extractJSON(text: string): unknown {
   const trimmed = text.trim();
@@ -171,18 +170,19 @@ export function AIAssistantPanel({
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
 
-  const hasApiKey = !!(import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined);
+  const hasApiKey = !!(import.meta.env.VITE_GEMINI_API_KEY as string | undefined);
 
   function addLog(entry: LogEntry) {
     setLog((prev) => [...prev, entry]);
   }
 
-  async function run(action: 'generate' | 'copy' | 'palette' | 'improve' | 'prompt') {
+  async function run(action: 'generate' | 'copy' | 'palette' | 'improve' | 'prompt', chipPrompt?: string) {
     let userMsg = '';
     let systemMsg = '';
+    const inputPrompt = chipPrompt ?? prompt;
 
-    if (action === 'generate') {
-      userMsg = prompt || 'Build a modern professional landing page';
+    if (action === 'generate' || action === 'prompt') {
+      userMsg = inputPrompt || 'Build a modern professional landing page';
       systemMsg = PAGE_GEN_SYSTEM;
     } else if (action === 'copy') {
       if (!selectedComponent) {
@@ -192,14 +192,11 @@ export function AIAssistantPanel({
       userMsg = `Rewrite copy for this ${selectedComponent.type} component:\n${JSON.stringify(selectedComponent.props, null, 2)}`;
       systemMsg = COPY_SYSTEM;
     } else if (action === 'palette') {
-      userMsg = prompt || 'Generate a modern professional color palette';
+      userMsg = inputPrompt || 'Generate a modern professional color palette';
       systemMsg = PALETTE_SYSTEM;
     } else if (action === 'improve') {
       userMsg = `Improve this page:\n${JSON.stringify(components, null, 2)}`;
       systemMsg = IMPROVE_SYSTEM;
-    } else {
-      userMsg = prompt;
-      systemMsg = PAGE_GEN_SYSTEM;
     }
 
     if (!userMsg.trim()) return;
@@ -208,7 +205,7 @@ export function AIAssistantPanel({
     setLoading(true);
 
     try {
-      const raw = await callClaude(systemMsg, userMsg);
+      const raw = await callGemini(systemMsg, userMsg);
 
       if (action === 'copy') {
         const parsed = extractJSON(raw) as Partial<VibeComponentProps>;
@@ -264,6 +261,9 @@ export function AIAssistantPanel({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Sparkles style={{ width: 16, height: 16, color: '#FF6B35' }} />
           <span style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>AI Assistant</span>
+          <span style={{ fontSize: 10, color: '#555', backgroundColor: '#222', padding: '1px 6px', borderRadius: 10, border: '1px solid #333' }}>
+            Gemini
+          </span>
         </div>
         <button
           type="button"
@@ -285,7 +285,8 @@ export function AIAssistantPanel({
         }}>
           <AlertCircle style={{ width: 14, height: 14, color: '#FF6B35', flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 11, color: '#FF9F7A', lineHeight: 1.5, margin: 0 }}>
-            AI features require an API key. Add <code style={{ backgroundColor: '#FF6B3520', padding: '1px 4px', borderRadius: 3 }}>VITE_ANTHROPIC_API_KEY</code> to your .env file.
+            AI features need a Gemini API key. Add <code style={{ backgroundColor: '#FF6B3520', padding: '1px 4px', borderRadius: 3 }}>VITE_GEMINI_API_KEY</code> to your .env file.
+            Get a free key at <strong>aistudio.google.com</strong>
           </p>
         </div>
       )}
@@ -352,10 +353,7 @@ export function AIAssistantPanel({
                   key={chip}
                   type="button"
                   disabled={loading || !hasApiKey}
-                  onClick={() => {
-                    setPrompt(chip);
-                    void run('generate');
-                  }}
+                  onClick={() => void run('generate', chip)}
                   style={{
                     padding: '7px 12px', borderRadius: 8, textAlign: 'left',
                     backgroundColor: '#1E1E1E', border: '1px solid #2E2E2E',

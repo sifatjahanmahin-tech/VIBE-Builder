@@ -71,9 +71,15 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
     <>
       <div
         className="rounded-xl overflow-hidden flex flex-col group transition-all duration-200 hover:-translate-y-0.5"
-        style={{ backgroundColor: '#141414', border: '1px solid #2A2A2A' }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3A'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2A'; }}
+        style={{ backgroundColor: '#141414', border: '1px solid #2A2A2A', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = '#FF6B3550';
+          e.currentTarget.style.boxShadow = '0 0 0 1px #FF6B3520, 0 8px 32px rgba(255,107,53,0.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = '#2A2A2A';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
       >
         {/* Accent header strip */}
         <div
@@ -148,13 +154,20 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-sm font-medium text-white truncate">{formatPageName(page)}</span>
-                    {page.isPublished && (
+                    {page.isPublished ? (
                       <span
                         className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
                         style={{ color: '#10b981', backgroundColor: '#10b98115', border: '1px solid #10b98130' }}
                       >
                         <Globe className="h-2.5 w-2.5" />
                         Live
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ color: '#666', backgroundColor: '#1E1E1E', border: '1px solid #333' }}
+                      >
+                        Draft
                       </span>
                     )}
                   </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Plus, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useMyWebsites, useCreateWebsite } from '../hooks/use-websites';
 import { WebsiteCard } from '../components/website-card';
 import { CreateWebsiteModal } from '../components/create-website-modal';
@@ -102,12 +102,38 @@ export function VibeDashboardPage() {
 
         {/* Content */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-32">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#FF6B35' }} />
-              <p className="text-sm" style={{ color: '#555' }}>Loading your websites…</p>
+          <>
+            <style>{`
+              @keyframes vibe-shimmer {
+                0% { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
+              }
+              .vibe-skeleton {
+                background: linear-gradient(90deg, #1A1A1A 25%, #262626 50%, #1A1A1A 75%);
+                background-size: 200% 100%;
+                animation: vibe-shimmer 1.5s infinite;
+                border-radius: 6px;
+              }
+            `}</style>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="rounded-xl overflow-hidden" style={{ backgroundColor: '#141414', border: '1px solid #2A2A2A' }}>
+                  <div style={{ padding: '20px', borderBottom: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="vibe-skeleton" style={{ width: 40, height: 40, borderRadius: 12 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="vibe-skeleton" style={{ height: 12, width: '60%', marginBottom: 8 }} />
+                      <div className="vibe-skeleton" style={{ height: 10, width: '40%' }} />
+                    </div>
+                  </div>
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[0, 1, 2].map((j) => (
+                      <div key={j} className="vibe-skeleton" style={{ height: 32, borderRadius: 8 }} />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          </>
         ) : isError ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
             <div

@@ -26,11 +26,11 @@ interface PropertyEditorProps {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  backgroundColor: '#333',
-  border: '1px solid #444',
+  backgroundColor: '#1E1E1E',
+  border: '1px solid #333',
   color: 'white',
   borderRadius: 6,
-  padding: '7px 10px',
+  padding: '8px 12px',
   fontSize: 12,
   outline: 'none',
   transition: 'border-color 0.15s',
@@ -68,7 +68,7 @@ function DInput({
       placeholder={placeholder}
       style={inputStyle}
       onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
     />
   );
 }
@@ -83,7 +83,7 @@ function DTextarea({ value, onChange, rows = 3 }: {
       onChange={(e) => onChange(e.target.value)}
       style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
       onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
     />
   );
 }
@@ -99,7 +99,7 @@ function DSelect({ value, onChange, options }: {
       onChange={(e) => onChange(e.target.value)}
       style={{ ...inputStyle, cursor: 'pointer' }}
       onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value} style={{ backgroundColor: '#222' }}>
@@ -132,7 +132,7 @@ function DColorField({ label, value, onChange }: {
           onChange={(e) => onChange(e.target.value)}
           style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
           onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
         />
       </div>
     </div>
@@ -187,7 +187,7 @@ function ImageUploadInput({
           placeholder={placeholder ?? 'https://…'}
           style={{ ...inputStyle, flex: 1 }}
           onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
         />
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
         <button
@@ -203,7 +203,7 @@ function ImageUploadInput({
             cursor: uploading ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.borderColor = '#FF6B35'; e.currentTarget.style.color = '#FF6B35'; } }}
-          onMouseLeave={(e) => { if (!uploading) { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.color = '#CCC'; } }}
+          onMouseLeave={(e) => { if (!uploading) { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#CCC'; } }}
         >
           {uploading
             ? <Loader2 style={{ width: 13, height: 13 }} className="animate-spin" />
@@ -270,7 +270,7 @@ function NavLinkEditor({ links, onChange }: {
             }}
             style={{ ...inputStyle, flex: 1 }}
             onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
           />
           <input
             type="text" value={link.url} placeholder="URL"
@@ -281,7 +281,7 @@ function NavLinkEditor({ links, onChange }: {
             }}
             style={{ ...inputStyle, flex: 1 }}
             onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
           />
           <button
             type="button"
@@ -343,7 +343,7 @@ function HeroForm({ props, onChange }: { props: HeroSectionProps; onChange: (p: 
               onChange={(e) => onChange({ gradientFrom: e.target.value || undefined })}
               style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
               onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }} />
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }} />
           </div>
         </DField>
         <DField label="Gradient To (optional)">
@@ -355,7 +355,7 @@ function HeroForm({ props, onChange }: { props: HeroSectionProps; onChange: (p: 
               onChange={(e) => onChange({ gradientTo: e.target.value || undefined })}
               style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11 }}
               onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }} />
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }} />
           </div>
         </DField>
         <DField label="Background Image URL">
@@ -570,14 +570,14 @@ function FeaturesGridForm({ props, onChange }: { props: FeaturesGridProps; onCha
                   onChange={(e) => updateFeature(idx, { title: e.target.value })}
                   style={inputStyle}
                   onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
                 />
               </div>
               <input type="text" value={f.description} placeholder="Brief description…"
                 onChange={(e) => updateFeature(idx, { description: e.target.value })}
                 style={{ ...inputStyle, fontSize: 11 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = '#FF6B35'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#444'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#333'; }}
               />
             </div>
           ))}

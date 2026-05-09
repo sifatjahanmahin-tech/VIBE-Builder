@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus } from 'lucide-react';
+import { Copy, Plus } from 'lucide-react';
 import { ComponentType, VibeComponent } from '@/types/vibebuilder';
 import type {
   HeroSectionProps,
@@ -90,9 +90,10 @@ interface SortableComponentProps {
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  onDuplicate: () => void;
 }
 
-function SortableComponent({ component, isSelected, onSelect, onRemove }: SortableComponentProps) {
+function SortableComponent({ component, isSelected, onSelect, onRemove, onDuplicate }: SortableComponentProps) {
   const {
     attributes, listeners, setNodeRef,
     transform, transition, isDragging,
@@ -164,12 +165,28 @@ function SortableComponent({ component, isSelected, onSelect, onRemove }: Sortab
         ⠿
       </button>
 
+      {/* Duplicate button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Duplicate block (Ctrl+D)"
+        style={{
+          position: 'absolute', top: 8, right: 44, zIndex: 25,
+          backgroundColor: 'rgba(0,0,0,0.55)', color: '#ddd',
+          border: 'none', borderRadius: 4, padding: '3px 6px',
+          fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center',
+        }}
+      >
+        <Copy style={{ width: 11, height: 11 }} />
+      </button>
+
       {/* Delete button */}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Remove block"
+        title="Remove block (Delete)"
         style={{
           position: 'absolute', top: 8, right: 8, zIndex: 25,
           backgroundColor: 'rgba(239,68,68,0.85)', color: 'white',
@@ -198,10 +215,11 @@ interface EditorCanvasProps {
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
+  onDuplicate: (id: string) => void;
 }
 
 export function EditorCanvas({
-  components, selectedId, previewMode, viewport, onSelect, onRemove, onReorder,
+  components, selectedId, previewMode, viewport, onSelect, onRemove, onReorder, onDuplicate,
 }: EditorCanvasProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -283,6 +301,7 @@ export function EditorCanvas({
                     isSelected={selectedId === component.id}
                     onSelect={() => onSelect(component.id)}
                     onRemove={() => onRemove(component.id)}
+                    onDuplicate={() => onDuplicate(component.id)}
                   />
                 ))}
               </SortableContext>

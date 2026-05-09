@@ -107,14 +107,36 @@ function PageSkeleton() {
 
 function NotFound() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-5 text-center px-4 bg-slate-50">
-      <div className="text-8xl font-black text-slate-200 select-none">404</div>
+    <div
+      className="flex flex-col items-center justify-center min-h-screen gap-6 text-center px-4"
+      style={{ backgroundColor: '#0A0A0A' }}
+    >
+      <div
+        style={{
+          fontSize: 120, fontWeight: 900, lineHeight: 1,
+          background: 'linear-gradient(135deg, #FF6B35, #ff9a6c)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          userSelect: 'none',
+        }}
+      >
+        404
+      </div>
       <div>
-        <p className="text-2xl font-bold text-slate-700">Page not found</p>
-        <p className="text-slate-400 mt-2 text-sm max-w-sm">
+        <p style={{ fontSize: 22, fontWeight: 700, color: 'white' }}>Page not found</p>
+        <p style={{ fontSize: 14, color: '#555', marginTop: 8, maxWidth: 320, lineHeight: 1.6 }}>
           This page doesn&apos;t exist or hasn&apos;t been published yet.
         </p>
       </div>
+      <button
+        type="button"
+        onClick={() => window.history.back()}
+        style={{
+          padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+          backgroundColor: '#FF6B35', color: 'white', border: 'none', cursor: 'pointer',
+        }}
+      >
+        Go back
+      </button>
     </div>
   );
 }
@@ -227,11 +249,18 @@ export function SiteRendererPage() {
   const hasNavbarBlock = sortedComponents.some((c) => c.type === ComponentType.Navbar);
 
   return (
-    <div className="min-h-screen bg-white scroll-smooth">
+    <div className="min-h-screen bg-white" style={{ scrollBehavior: 'smooth' }}>
+      <style>{`
+        @keyframes vibe-fadein {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .vibe-page-fadein { animation: vibe-fadein 0.4s ease both; }
+      `}</style>
       {!hasNavbarBlock && (
         <SiteNav siteName={page.pageName} pages={navPages} currentSlug={slug} userId={userId} />
       )}
-      <main>
+      <main className="vibe-page-fadein">
         {sortedComponents.map(renderComponent)}
       </main>
     </div>
