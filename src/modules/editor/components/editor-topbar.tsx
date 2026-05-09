@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Cloud, Download, ExternalLink, Eye, EyeOff, Loader2,
+  Cloud, Download, ExternalLink, Eye, EyeOff, Keyboard, Loader2,
   Monitor, RotateCcw, RotateCw, Smartphone, Sparkles, Tablet, Upload,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +30,7 @@ interface EditorTopbarProps {
   onRedo: () => void;
   onExport: () => void;
   onImportClick: () => void;
+  onShowShortcuts: () => void;
 }
 
 export function EditorTopbar({
@@ -37,6 +38,7 @@ export function EditorTopbar({
   viewport, showAI, canUndo, canRedo,
   onSave, onPublishToggle, onPreviewToggle, onRenamePage, setPageName,
   onViewportChange, onAIToggle, onUndo, onRedo, onExport, onImportClick,
+  onShowShortcuts,
 }: EditorTopbarProps) {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.itemId ?? '');
@@ -201,6 +203,9 @@ export function EditorTopbar({
       <div className="flex items-center gap-1 shrink-0">
         {/* AI toggle */}
         {iconBtn('AI Assistant', <Sparkles style={{ width: 14, height: 14 }} />, onAIToggle, false, showAI)}
+
+        {/* Keyboard shortcuts */}
+        {iconBtn('Keyboard shortcuts (?)', <Keyboard style={{ width: 14, height: 14 }} />, onShowShortcuts)}
 
         {/* Export */}
         {iconBtn('Export page JSON', <Download style={{ width: 14, height: 14 }} />, onExport)}

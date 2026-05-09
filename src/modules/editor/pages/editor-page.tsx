@@ -7,6 +7,7 @@ import { ComponentPalette } from '../components/component-palette';
 import { EditorCanvas } from '../components/editor-canvas';
 import { PropertyEditor } from '../components/property-editor';
 import { AIAssistantPanel } from '../components/ai-assistant-panel';
+import { KeyboardShortcutsModal } from '../components/keyboard-shortcuts-modal';
 import { deletePage, updatePageSlug } from '@/lib/blocks-api';
 
 export function EditorPage() {
@@ -16,6 +17,7 @@ export function EditorPage() {
   const [previewMode, setPreviewMode] = useState(false);
   const [viewport, setViewport] = useState<Viewport>('desktop');
   const [showAI, setShowAI] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -53,10 +55,11 @@ export function EditorPage() {
       if (ctrl && e.key === 'd') { e.preventDefault(); if (selectedId) duplicateComponent(selectedId); }
 
       if (!inInput) {
-        if (e.key === 'Escape') { setSelectedId(null); setShowAI(false); }
+        if (e.key === 'Escape') { setSelectedId(null); setShowAI(false); setShowShortcuts(false); }
         if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
           removeComponent(selectedId);
         }
+        if (e.key === '?') { setShowShortcuts((v) => !v); }
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -150,6 +153,7 @@ export function EditorPage() {
           onRenamePage={handleRenamePage} setPageName={setPageName}
           onViewportChange={setViewport} onAIToggle={() => setShowAI((v) => !v)}
           onUndo={undo} onRedo={redo} onExport={handleExport} onImportClick={handleImportClick}
+          onShowShortcuts={() => setShowShortcuts((v) => !v)}
         />
 
         <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
@@ -192,6 +196,8 @@ export function EditorPage() {
           )}
         </div>
       </div>
+
+      <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </>
   );
 }

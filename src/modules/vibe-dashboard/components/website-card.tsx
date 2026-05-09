@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Pencil, Globe, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Pencil, Globe, ExternalLink, Eye, Copy, AlertTriangle, RefreshCw } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { useAuthStore } from '@/state/store/auth';
 import { WebsiteProject, PageLayout } from '@/types/vibebuilder';
 import { useSitePages, useCreatePage, useDeletePage, useDeleteWebsite } from '../hooks/use-websites';
 import { AddPageModal } from './add-page-modal';
+import { buildTemplateComponents, PageTemplate } from '@/lib/page-templates';
+import { getPageLayout, savePageLayout } from '@/lib/blocks-api';
 
 interface WebsiteCardProps {
   site: WebsiteProject;
@@ -28,6 +31,7 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.itemId ?? '');
   const [addPageOpen, setAddPageOpen] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const accent = getSiteAccent(site.siteName);
 
   const {
@@ -42,13 +46,46 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
   const deletePageMut = useDeletePage(site.siteId);
   const deleteWebsiteMut = useDeleteWebsite();
 
-  function handleAddPage(pageName: string, slug: string) {
-    createPageMut.mutate({ pageName, slug }, { onSuccess: () => setAddPageOpen(false) });
+  async function handleAddPage(pageName: string, slug: string, template?: PageTemplate) {
+    createPageMut.mutate({ pageName, slug }, {
+      onSuccess: async (page) => {
+        if (template) {
+          try {
+            const components = buildTemplateComponents(template);
+            await savePageLayout(page.pageId, components);
+          } catch { /* template save failure is non-critical */ }
+        }
+        setAddPageOpen(false);
+        createPageMut.reset();
+      },
+    });
   }
 
   function handleDeletePage(e: React.MouseEvent, pageId: string) {
     e.stopPropagation();
     deletePageMut.mutate(pageId);
+  }
+
+  async function handleDuplicatePage(e: React.MouseEvent, page: PageLayout) {
+    e.stopPropagation();
+    setDuplicatingId(page.pageId);
+    try {
+      const source = await getPageLayout(page.pageId);
+      const newName = `${page.pageName} (Copy)`;
+      const newSlug = `${page.slug}-copy`;
+      createPageMut.mutate({ pageName: newName, slug: newSlug }, {
+        onSuccess: async (newPage) => {
+          if (source?.components.length) {
+            const newComponents = source.components.map((c) => ({ ...c, id: uuidv4() }));
+            await savePageLayout(newPage.pageId, newComponents);
+          }
+          await refetchPages();
+          setDuplicatingId(null);
+        },
+      });
+    } catch {
+      setDuplicatingId(null);
+    }
   }
 
   function handleDeleteSite(e: React.MouseEvent) {
@@ -65,6 +102,13 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
   function handleViewLive(e: React.MouseEvent, page: PageLayout) {
     e.stopPropagation();
     window.open(`/site/${userId}/${page.slug}`, '_blank');
+  }
+
+  function handlePreviewSite(e: React.MouseEvent) {
+    e.stopPropagation();
+    const firstPublished = pages.find((p) => p.isPublished);
+    const target = firstPublished ?? pages[0];
+    if (target) window.open(`/site/${userId}/${target.slug}`, '_blank');
   }
 
   return (
@@ -102,18 +146,33 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
               )}
             </div>
           </div>
-          <button
-            type="button"
-            className="flex items-center justify-center w-7 h-7 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-            style={{ color: '#555' }}
-            onClick={handleDeleteSite}
-            disabled={deleteWebsiteMut.isPending}
-            title="Delete website"
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = '#ef444415'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; e.currentTarget.style.backgroundColor = 'transparent'; }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {pages.length > 0 && (
+              <button
+                type="button"
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all"
+                style={{ color: '#555' }}
+                onClick={handlePreviewSite}
+                title="Preview site"
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#CCC'; e.currentTarget.style.backgroundColor = '#2A2A2A'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all"
+              style={{ color: '#555' }}
+              onClick={handleDeleteSite}
+              disabled={deleteWebsiteMut.isPending}
+              title="Delete website"
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = '#ef444415'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Card body */}
@@ -195,6 +254,18 @@ export function WebsiteCard({ site }: WebsiteCardProps) {
                       onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
                     >
                       <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      className="w-6 h-6 flex items-center justify-center rounded transition-colors"
+                      style={{ color: '#555' }}
+                      onClick={(e) => handleDuplicatePage(e, page)}
+                      disabled={duplicatingId === page.pageId}
+                      title="Duplicate page"
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#6366f1'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
+                    >
+                      <Copy className="h-3 w-3" />
                     </button>
                     <button
                       type="button"

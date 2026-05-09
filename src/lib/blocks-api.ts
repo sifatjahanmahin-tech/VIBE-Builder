@@ -463,6 +463,25 @@ function toWebsiteProject(r: any, fallbackUserId: string): WebsiteProject {
   };
 }
 
+export async function duplicatePage(
+  sourcePageId: string,
+  siteId: string,
+  userId: string,
+  newName: string,
+  newSlug: string
+): Promise<PageLayout> {
+  const [source, newPage] = await Promise.all([
+    getPageLayout(sourcePageId),
+    createPage(siteId, userId, newName, newSlug),
+  ]);
+  if (source && source.components.length > 0) {
+    const newComponents = source.components.map((c) => ({ ...c, id: uuidv4() }));
+    await savePageLayout(newPage.pageId, newComponents);
+    newPage.components = newComponents;
+  }
+  return newPage;
+}
+
 // ---------------------------------------------------------------------------
 // Renderer queries (public-facing, uses authenticated graphqlClient)
 // ---------------------------------------------------------------------------
